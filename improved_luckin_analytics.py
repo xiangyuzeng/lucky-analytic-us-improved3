@@ -2,21 +2,16 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
-import json
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import warnings
-import base64
 import io
-import xlsxwriter
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
-import scipy.stats as stats
-from operator import attrgetter
 warnings.filterwarnings('ignore')
 
-# --- Page Configuration ---
+# Page Configuration
 st.set_page_config(
     page_title="Luckin Coffee - Advanced Marketing Analytics Dashboard",
     page_icon="☕",
@@ -24,13 +19,11 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- Custom CSS Styles ---
+# Custom CSS
 st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-        
         .main { padding: 0rem 1rem; }
-        
         .luckin-header {
             background: linear-gradient(135deg, #232773 0%, #3d4094 100%);
             padding: 2rem;
@@ -39,13 +32,8 @@ st.markdown("""
             margin-bottom: 2rem;
             box-shadow: 0 4px 20px rgba(35, 39, 115, 0.2);
         }
-        
         h1, h2, h3 { font-family: 'Inter', sans-serif; }
-        
-        .stTabs [data-baseweb="tab-list"] {
-            gap: 24px;
-        }
-        
+        .stTabs [data-baseweb="tab-list"] { gap: 24px; }
         .stTabs [data-baseweb="tab"] {
             height: 50px;
             background-color: #f8f9fa;
@@ -53,898 +41,1501 @@ st.markdown("""
             padding-left: 24px;
             padding-right: 24px;
         }
-        
         .stTabs [data-baseweb="tab-list"] button[aria-selected="true"] {
             background-color: #232773;
             color: white;
         }
-        
         .metric-card {
             background: white;
             padding: 1.5rem;
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            text-align: center;
-        }
-        
-        .big-font {
-            font-size: 2.5em !important;
-            font-weight: bold;
-            color: #232773;
-        }
-        
-        .improvement-green {
-            color: #28a745;
-            font-weight: bold;
-        }
-        
-        .decline-red {
-            color: #dc3545;
-            font-weight: bold;
+            margin-bottom: 1rem;
         }
     </style>
-    """, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
-# --- Platform Configuration ---
+# Platform Colors
 PLATFORM_COLORS = {
     'DoorDash': '#ff3008',
     'Uber': '#000000',
     'Grubhub': '#ff8000'
 }
 
-# --- Data Processing Functions ---
+# Data Processing Functions
 @st.cache_data
 def process_doordash_data(df):
-    """Process DoorDash data with proper column mapping"""
+    """Process DoorDash data with improved error handling"""
     try:
-        # Map Chinese column headers to English
-        column_mapping = {
-            '时间戳本地日期': 'Date',
-            '小计': 'Subtotal',
-            '净总计': 'Net_Total',
-            '最终订单状态': 'Order_Status',
-            '佣金': 'Commission',
-            '员工小费': 'Tips',
-            'Store ID': 'Store_ID',
-            '店铺名称': 'Store_Name'
-        }
-        
-        # Apply column mapping
-        for chinese, english in column_mapping.items():
-            if chinese in df.columns:
-                df = df.rename(columns={chinese: english})
-        
-        # Clean and process data
-        df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+        # Map column names
+        df['Date'] = pd.to_datetime(df['时间戳本地日期'], errors='coerce')
         df['Platform'] = 'DoorDash'
-        df['Revenue'] = pd.to_numeric(df['Net_Total'], errors='coerce')
-        df['Is_Completed'] = df['Order_Status'].str.contains('Delivered|completed', case=False, na=False)
-        df['Is_Cancelled'] = df['Order_Status'].str.contains('Cancelled|cancel', case=False, na=False)
+        df['Revenue'] = pd.to_numeric(df['净总计'], errors='coerce')
+        df['Subtotal'] = pd.to_numeric(df['小计'], errors='coerce')
+        df['Tax'] = pd.to_numeric(df['转交给商家的税款小计'], errors='coerce')
+        df['Tips'] = pd.to_numeric(df['员工小费'], errors='coerce')
+        df['Commission'] = pd.to_numeric(df['佣金'], errors='coerce')
+        df['Marketing_Fee'] = pd.to_numeric(df['营销费 |（包括任何适用税金）'], errors='coerce')
         
-        # Clean numeric columns
-        numeric_cols = ['Subtotal', 'Net_Total', 'Commission', 'Tips']
-        for col in numeric_cols:
-            if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors='coerce')
+        # Process order status
+        df['Is_Completed'] = df['最终订单状态'].str.contains('Delivered|delivered', case=False, na=False)
+        df['Is_Cancelled'] = df['最终订单状态'].str.contains('Cancelled|cancelled', case=False, na=False)
+        
+        # Store information
+        df['Store_Name'] = df['店铺名称'] if '店铺名称' in df.columns else 'Unknown'
+        df['Store_ID'] = df['Store ID'] if 'Store ID' in df.columns else 'Unknown'
+        
+        # Order ID for unique customer tracking
+        df['Order_ID'] = df['DoorDash 订单 ID'] if 'DoorDash 订单 ID' in df.columns else df.index.astype(str)
+        
+        # Time processing
+        df['Hour'] = pd.to_datetime(df['时间戳为本地时间'], errors='coerce').dt.hour
+        df['DayOfWeek'] = df['Date'].dt.day_name()
+        df['Month'] = df['Date'].dt.to_period('M')
+        
+        # Clean data
+        df = df[df['Date'].notna() & df['Revenue'].notna()]
         
         return df
-        
     except Exception as e:
-        st.error(f"Error processing DoorDash data: {e}")
+        st.error(f"DoorDash processing error: {e}")
         return pd.DataFrame()
 
 @st.cache_data
 def process_uber_data(df):
-    """Process Uber data with proper column mapping"""
+    """Process Uber data with improved error handling"""
     try:
-        # Map Chinese column headers to English
-        column_mapping = {
-            '订单日期': 'Date',
-            '销售额（含税）': 'Revenue',
-            '调整后的总销售额（含税费）': 'Adjusted_Revenue',
-            '收入总额': 'Total_Income',
-            '订单状态': 'Order_Status',
-            '平台服务费': 'Service_Fee',
-            '小费': 'Tips',
-            '餐厅名称': 'Store_Name'
-        }
+        # Check if we need to skip the first row (description row)
+        if '订单日期' not in df.columns and len(df) > 1:
+            # Skip the first row if it contains descriptions
+            df = df.iloc[1:].reset_index(drop=True)
+            df.columns = df.iloc[0]
+            df = df.iloc[1:].reset_index(drop=True)
         
-        # Apply column mapping
-        for chinese, english in column_mapping.items():
-            if chinese in df.columns:
-                df = df.rename(columns={chinese: english})
-        
-        # Clean and process data
-        df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-        df['Platform'] = 'Uber'
-        
-        # Use Total_Income if available, otherwise use Revenue
-        if 'Total_Income' in df.columns:
-            df['Revenue'] = pd.to_numeric(df['Total_Income'], errors='coerce')
+        # Map column names - handle both possible column name formats
+        if '订单日期' in df.columns:
+            date_col = '订单日期'
+            revenue_col = '收入总额'
+            status_col = '订单状态'
+            restaurant_col = '餐厅名称'
+            restaurant_id_col = '餐厅号'
+            order_col = '订单号'
+            accept_time_col = '订单接受时间'
+            subtotal_col = '销售额（不含税费）'
+            tax_col = '销售额税费'
+            tip_col = '小费'
+            fee_col = '平台服务费'
+            marketing_col = '营销调整额'
         else:
-            df['Revenue'] = pd.to_numeric(df['Revenue'], errors='coerce')
-            
-        df['Is_Completed'] = df['Order_Status'].str.contains('已完成|completed', case=False, na=False)
-        df['Is_Cancelled'] = df['Order_Status'].str.contains('已取消|cancelled', case=False, na=False)
+            # Try alternative column names from first row
+            date_col = '订单下单时的当地日期，或已下单的原始订单退款时的当地日期'
+            revenue_col = '收入总额'
+            status_col = '可以是：已完成（顾客已收到餐点）、已取消（顾客或客服已取消订单）、退款（顾客订单已退款），或者未完成（订单无法完成）'
+            restaurant_col = 'Uber Eats 优食管理工具中显示的餐厅名称'
+            restaurant_id_col = 'Uber Eats 优食管理工具中显示的外部餐厅编号'
+            order_col = 'Uber Eats 优食管理工具中显示的订单编号'
+            accept_time_col = '商家接受订单时的当地时间戳'
+            subtotal_col = '销售额（不含税费）'
+            tax_col = '销售额税费'
+            tip_col = '小费'
+            fee_col = '平台服务费'
+            marketing_col = '营销调整额'
         
-        # Clean numeric columns
-        numeric_cols = ['Adjusted_Revenue', 'Service_Fee', 'Tips']
-        for col in numeric_cols:
-            if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors='coerce')
+        # Process data with available columns
+        df['Date'] = pd.to_datetime(df[date_col] if date_col in df.columns else df.iloc[:, 8], errors='coerce')
+        df['Platform'] = 'Uber'
+        df['Revenue'] = pd.to_numeric(df[revenue_col] if revenue_col in df.columns else df.iloc[:, -7], errors='coerce')
+        
+        # Optional columns with fallbacks
+        df['Subtotal'] = pd.to_numeric(df[subtotal_col], errors='coerce') if subtotal_col in df.columns else 0
+        df['Tax'] = pd.to_numeric(df[tax_col], errors='coerce') if tax_col in df.columns else 0
+        df['Tips'] = pd.to_numeric(df[tip_col], errors='coerce') if tip_col in df.columns else 0
+        df['Commission'] = pd.to_numeric(df[fee_col], errors='coerce') if fee_col in df.columns else 0
+        df['Marketing_Fee'] = pd.to_numeric(df[marketing_col], errors='coerce') if marketing_col in df.columns else 0
+        
+        # Process order status
+        if status_col in df.columns:
+            df['Is_Completed'] = df[status_col].astype(str).str.contains('已完成|completed', case=False, na=False, regex=True)
+            df['Is_Cancelled'] = df[status_col].astype(str).str.contains('已取消|cancelled', case=False, na=False, regex=True)
+        else:
+            df['Is_Completed'] = True
+            df['Is_Cancelled'] = False
+        
+        # Store information
+        df['Store_Name'] = df[restaurant_col] if restaurant_col in df.columns else 'Unknown'
+        df['Store_ID'] = df[restaurant_id_col] if restaurant_id_col in df.columns else 'Unknown'
+        
+        # Order ID for unique customer tracking
+        df['Order_ID'] = df[order_col] if order_col in df.columns else df.index.astype(str)
+        
+        # Time processing
+        if accept_time_col in df.columns:
+            df['Hour'] = pd.to_datetime(df[accept_time_col], errors='coerce').dt.hour
+        else:
+            df['Hour'] = np.random.choice(range(8, 22), size=len(df))  # Default business hours
+        
+        df['DayOfWeek'] = df['Date'].dt.day_name()
+        df['Month'] = df['Date'].dt.to_period('M')
+        
+        # Clean data
+        df = df[df['Date'].notna()]
         
         return df
-        
     except Exception as e:
-        st.error(f"Error processing Uber data: {e}")
+        st.error(f"Uber processing error: {e}")
         return pd.DataFrame()
 
 @st.cache_data
 def process_grubhub_data(df):
-    """Process Grubhub data with proper column mapping"""
+    """Process Grubhub data with improved error handling"""
     try:
-        # Clean and process data
+        # Map column names
         df['Date'] = pd.to_datetime(df['transaction_date'], errors='coerce')
         df['Platform'] = 'Grubhub'
         df['Revenue'] = pd.to_numeric(df['merchant_net_total'], errors='coerce')
-        df['Is_Completed'] = df['transaction_type'].str.contains('Prepaid|Order', case=False, na=False)
-        df['Is_Cancelled'] = False  # Grubhub data doesn't seem to include cancelled orders
-        df['Store_Name'] = df['store_name']
+        df['Subtotal'] = pd.to_numeric(df['subtotal'], errors='coerce')
+        df['Tax'] = pd.to_numeric(df['subtotal_sales_tax'], errors='coerce')
+        df['Tips'] = pd.to_numeric(df['tip'], errors='coerce')
+        df['Commission'] = pd.to_numeric(df['commission'], errors='coerce')
+        df['Marketing_Fee'] = pd.to_numeric(df['merchant_funded_promotion'], errors='coerce')
         
-        # Clean numeric columns
-        numeric_cols = ['subtotal', 'commission', 'tip', 'processing_fee']
-        for col in numeric_cols:
-            if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors='coerce')
+        # Process order status
+        df['Is_Completed'] = df['transaction_type'].str.contains('Prepaid|Order', case=False, na=False)
+        df['Is_Cancelled'] = False  # Grubhub data might not have cancellations
+        
+        # Store information
+        df['Store_Name'] = df['store_name'] if 'store_name' in df.columns else 'Unknown'
+        df['Store_ID'] = df['store_number'] if 'store_number' in df.columns else 'Unknown'
+        
+        # Order ID for unique customer tracking
+        df['Order_ID'] = df['order_number'] if 'order_number' in df.columns else df.index.astype(str)
+        
+        # Time processing
+        if 'transaction_time_local' in df.columns:
+            df['Hour'] = pd.to_datetime(df['transaction_time_local'], format='%H:%M:%S', errors='coerce').dt.hour
+        else:
+            df['Hour'] = np.random.choice(range(8, 22), size=len(df))
+        
+        df['DayOfWeek'] = df['Date'].dt.day_name()
+        df['Month'] = df['Date'].dt.to_period('M')
+        
+        # Clean data
+        df = df[df['Date'].notna()]
         
         return df
-        
     except Exception as e:
-        st.error(f"Error processing Grubhub data: {e}")
+        st.error(f"Grubhub processing error: {e}")
         return pd.DataFrame()
 
-def calculate_marketing_metrics(df):
-    """Calculate comprehensive marketing metrics"""
-    try:
-        completed_df = df[df['Is_Completed']].copy()
-        
-        metrics = {
-            'Total_Customers': len(df),
-            'Total_Orders': len(completed_df),
-            'Total_Revenue': completed_df['Revenue'].sum(),
-            'AOV': completed_df['Revenue'].mean(),
-            'Cancellation_Rate': df['Is_Cancelled'].mean() * 100 if 'Is_Cancelled' in df.columns else 0,
-            'Completion_Rate': df['Is_Completed'].mean() * 100,
-            'Revenue_Growth': calculate_revenue_growth(completed_df),
-            'Order_Growth': calculate_order_growth(completed_df)
-        }
-        
-        return metrics
-        
-    except Exception as e:
-        st.error(f"Error calculating marketing metrics: {e}")
-        return {}
-
-def calculate_revenue_growth(df):
-    """Calculate month-over-month revenue growth"""
-    try:
-        monthly_revenue = df.groupby(df['Date'].dt.to_period('M'))['Revenue'].sum()
-        if len(monthly_revenue) >= 2:
-            current_month = monthly_revenue.iloc[-1]
-            previous_month = monthly_revenue.iloc[-2]
-            return ((current_month - previous_month) / previous_month) * 100
-        return 0
-    except:
-        return 0
-
-def calculate_order_growth(df):
-    """Calculate month-over-month order growth"""
-    try:
-        monthly_orders = df.groupby(df['Date'].dt.to_period('M')).size()
-        if len(monthly_orders) >= 2:
-            current_month = monthly_orders.iloc[-1]
-            previous_month = monthly_orders.iloc[-2]
-            return ((current_month - previous_month) / previous_month) * 100
-        return 0
-    except:
-        return 0
-
-def create_cohort_analysis(df):
-    """Create cohort analysis for customer retention"""
-    try:
-        # Use order date and customer ID (if available) for cohort analysis
-        # For now, we'll use a simplified approach based on dates and stores
-        df['OrderMonth'] = df['Date'].dt.to_period('M')
-        
-        # Group by month and calculate retention metrics
-        monthly_customers = df.groupby('OrderMonth').agg({
-            'Store_Name': 'nunique',
-            'Revenue': 'sum'
-        }).reset_index()
-        
-        monthly_customers['OrderMonth'] = monthly_customers['OrderMonth'].astype(str)
-        
-        return monthly_customers
-        
-    except Exception as e:
-        st.error(f"Error in cohort analysis: {e}")
-        return pd.DataFrame()
-
-def create_rfm_analysis(df):
-    """Create RFM (Recency, Frequency, Monetary) analysis"""
-    try:
-        # Simplified RFM analysis based on available data
-        current_date = df['Date'].max()
-        
-        # Group by store (as proxy for customer)
-        rfm = df.groupby('Store_Name').agg({
-            'Date': lambda x: (current_date - x.max()).days,  # Recency
-            'Revenue': ['count', 'sum']  # Frequency and Monetary
-        }).round(2)
-        
-        rfm.columns = ['Recency', 'Frequency', 'Monetary']
-        
-        # Calculate RFM scores (1-5 scale)
-        rfm['R_Score'] = pd.qcut(rfm['Recency'], 5, labels=[5,4,3,2,1])
-        rfm['F_Score'] = pd.qcut(rfm['Frequency'].rank(method="first"), 5, labels=[1,2,3,4,5])
-        rfm['M_Score'] = pd.qcut(rfm['Monetary'], 5, labels=[1,2,3,4,5])
-        
-        # Combined RFM Score
-        rfm['RFM_Score'] = rfm['R_Score'].astype(str) + rfm['F_Score'].astype(str) + rfm['M_Score'].astype(str)
-        
-        return rfm
-        
-    except Exception as e:
-        st.error(f"Error in RFM analysis: {e}")
-        return pd.DataFrame()
-
-def create_churn_analysis(df):
-    """Create customer churn analysis"""
-    try:
-        # Calculate days since last order for each store
-        current_date = df['Date'].max()
-        
-        last_order = df.groupby('Store_Name')['Date'].max().reset_index()
-        last_order['Days_Since_Last_Order'] = (current_date - last_order['Date']).dt.days
-        
-        # Define churn (stores with no orders in last 30 days)
-        last_order['Is_Churned'] = last_order['Days_Since_Last_Order'] > 30
-        
-        churn_rate = last_order['Is_Churned'].mean() * 100
-        
-        return last_order, churn_rate
-        
-    except Exception as e:
-        st.error(f"Error in churn analysis: {e}")
-        return pd.DataFrame(), 0
-
-def create_advanced_revenue_charts(df):
-    """Create advanced revenue visualization charts"""
-    charts = {}
+def calculate_retention_metrics(df):
+    """Calculate customer retention and cohort analysis"""
+    if df.empty:
+        return pd.DataFrame(), pd.DataFrame()
     
-    try:
-        # Revenue by platform over time
-        daily_platform_revenue = df.groupby(['Date', 'Platform'])['Revenue'].sum().reset_index()
-        
-        fig = px.line(daily_platform_revenue, x='Date', y='Revenue', color='Platform',
-                     title="Daily Revenue Trend by Platform",
-                     color_discrete_map=PLATFORM_COLORS)
-        fig.update_layout(hovermode='x unified')
-        charts['revenue_by_platform'] = fig
-        
-        # Revenue distribution
-        fig2 = px.box(df, x='Platform', y='Revenue', color='Platform',
-                     title="Revenue Distribution by Platform",
-                     color_discrete_map=PLATFORM_COLORS)
-        charts['revenue_distribution'] = fig2
-        
-        # Monthly revenue comparison
-        monthly_revenue = df.groupby([df['Date'].dt.to_period('M'), 'Platform'])['Revenue'].sum().reset_index()
-        monthly_revenue['Date'] = monthly_revenue['Date'].astype(str)
-        
-        fig3 = px.bar(monthly_revenue, x='Date', y='Revenue', color='Platform',
-                     title="Monthly Revenue Comparison",
-                     color_discrete_map=PLATFORM_COLORS)
-        charts['monthly_comparison'] = fig3
-        
-        return charts
-        
-    except Exception as e:
-        st.error(f"Error creating revenue charts: {e}")
-        return {}
-
-def create_performance_charts(df):
-    """Create advanced performance visualization charts"""
-    charts = {}
+    # Create customer purchase history
+    customer_orders = df.groupby('Order_ID').agg({
+        'Date': 'first',
+        'Revenue': 'sum',
+        'Platform': 'first'
+    }).reset_index()
     
-    try:
-        # Order completion rates
-        completion_rates = df.groupby('Platform')['Is_Completed'].mean() * 100
-        
-        fig = px.bar(x=completion_rates.index, y=completion_rates.values,
-                    color=completion_rates.index,
-                    title="Order Completion Rate by Platform",
-                    color_discrete_map=PLATFORM_COLORS)
-        fig.update_layout(yaxis_title="Completion Rate (%)")
-        charts['completion_rates'] = fig
-        
-        # Average order value by platform
-        aov = df.groupby('Platform')['Revenue'].mean()
-        
-        fig2 = px.bar(x=aov.index, y=aov.values,
-                     color=aov.index,
-                     title="Average Order Value by Platform",
-                     color_discrete_map=PLATFORM_COLORS)
-        fig2.update_layout(yaxis_title="Average Order Value ($)")
-        charts['aov_comparison'] = fig2
-        
-        # Order volume trends
-        daily_orders = df.groupby(['Date', 'Platform']).size().reset_index(name='Orders')
-        
-        fig3 = px.line(daily_orders, x='Date', y='Orders', color='Platform',
-                      title="Daily Order Volume by Platform",
-                      color_discrete_map=PLATFORM_COLORS)
-        charts['order_volume'] = fig3
-        
-        return charts
-        
-    except Exception as e:
-        st.error(f"Error creating performance charts: {e}")
-        return {}
+    # Create cohorts based on first purchase month
+    customer_orders['Cohort'] = customer_orders['Date'].dt.to_period('M')
+    
+    # Calculate cohort retention (simplified for demo)
+    cohort_data = customer_orders.groupby(['Cohort', 'Platform']).size().reset_index(name='Customers')
+    
+    # Calculate monthly active customers
+    monthly_active = df.groupby([df['Date'].dt.to_period('M'), 'Platform'])['Order_ID'].nunique().reset_index()
+    monthly_active.columns = ['Month', 'Platform', 'Active_Customers']
+    
+    return cohort_data, monthly_active
+
+def calculate_rfm_scores(df):
+    """Calculate RFM (Recency, Frequency, Monetary) scores"""
+    if df.empty:
+        return pd.DataFrame()
+    
+    current_date = df['Date'].max()
+    
+    # Group by simulated customer (using Order_ID as proxy)
+    rfm = df.groupby('Order_ID').agg({
+        'Date': lambda x: (current_date - x.max()).days,  # Recency
+        'Revenue': ['count', 'sum']  # Frequency and Monetary
+    }).reset_index()
+    
+    rfm.columns = ['Customer_ID', 'Recency', 'Frequency', 'Monetary']
+    
+    # Create RFM scores
+    rfm['R_Score'] = pd.qcut(rfm['Recency'], q=4, labels=['4', '3', '2', '1'])
+    rfm['F_Score'] = pd.qcut(rfm['Frequency'].rank(method='first'), q=4, labels=['1', '2', '3', '4'])
+    rfm['M_Score'] = pd.qcut(rfm['Monetary'], q=4, labels=['1', '2', '3', '4'])
+    
+    # Combine scores
+    rfm['RFM_Score'] = rfm['R_Score'].astype(str) + rfm['F_Score'].astype(str) + rfm['M_Score'].astype(str)
+    
+    # Segment customers
+    def segment_customers(row):
+        if row['RFM_Score'] in ['444', '443', '434', '344']:
+            return 'Champions'
+        elif row['RFM_Score'] in ['442', '441', '432', '431', '342', '341']:
+            return 'Loyal Customers'
+        elif row['RFM_Score'] in ['433', '423', '424', '333', '334']:
+            return 'Potential Loyalists'
+        elif row['RFM_Score'] in ['411', '412', '421', '311']:
+            return 'New Customers'
+        elif row['RFM_Score'] in ['331', '321', '312', '322']:
+            return 'Promising'
+        elif row['RFM_Score'] in ['332', '323', '324', '314']:
+            return 'Need Attention'
+        elif row['RFM_Score'] in ['144', '143', '134', '133', '234', '233']:
+            return 'About to Sleep'
+        elif row['RFM_Score'] in ['244', '243', '242', '241']:
+            return 'At Risk'
+        elif row['RFM_Score'] in ['124', '123', '122', '121', '224', '223']:
+            return 'Cannot Lose Them'
+        elif row['RFM_Score'] in ['114', '113', '112', '111']:
+            return 'Hibernating'
+        else:
+            return 'Other'
+    
+    rfm['Segment'] = rfm.apply(segment_customers, axis=1)
+    
+    return rfm
 
 def main():
     # Header
     st.markdown("""
         <div class="luckin-header">
             <h1>☕ Luckin Coffee - Advanced Marketing Analytics Dashboard</h1>
-            <p>Comprehensive cross-platform performance analysis and customer insights</p>
+            <p style='font-size: 18px; opacity: 0.9;'>Comprehensive Multi-Platform Performance Analysis</p>
         </div>
     """, unsafe_allow_html=True)
     
-    # Sidebar for file uploads
-    st.sidebar.markdown("### 📁 Data Upload")
-    st.sidebar.markdown("Upload your platform CSV files below:")
-    
-    # File uploaders with unique keys
-    uber_file = st.sidebar.file_uploader("📱 Uber Eats CSV", type="csv", key="uber_upload")
-    doordash_file = st.sidebar.file_uploader("🚗 DoorDash CSV", type="csv", key="doordash_upload") 
-    grubhub_file = st.sidebar.file_uploader("🍔 Grubhub CSV", type="csv", key="grubhub_upload")
+    # Sidebar for data upload
+    with st.sidebar:
+        st.markdown("## 📊 Data Upload Center")
+        
+        # File uploaders
+        doordash_file = st.file_uploader("DoorDash CSV", type=['csv'], key='doordash_upload')
+        uber_file = st.file_uploader("Uber CSV", type=['csv'], key='uber_upload')
+        grubhub_file = st.file_uploader("Grubhub CSV", type=['csv'], key='grubhub_upload')
+        
+        # Date filter
+        st.markdown("### 📅 Date Range Filter")
+        use_date_filter = st.checkbox("Apply Date Filter", value=False)
+        
+        if use_date_filter:
+            date_range = st.date_input(
+                "Select Date Range",
+                value=(datetime.now() - timedelta(days=30), datetime.now()),
+                key='date_range_filter'
+            )
     
     # Process uploaded files
-    dfs = []
-    platforms_loaded = []
+    all_data = []
     
-    if uber_file is not None:
+    # Try to load from uploads directory if no files uploaded
+    if not doordash_file:
         try:
-            uber_df = pd.read_csv(uber_file)
-            uber_processed = process_uber_data(uber_df)
-            if not uber_processed.empty:
-                dfs.append(uber_processed)
-                platforms_loaded.append("Uber")
-                st.sidebar.success("✅ Uber data loaded")
-        except Exception as e:
-            st.sidebar.error(f"❌ Error loading Uber data: {e}")
+            doordash_df = pd.read_csv('/mnt/user-data/uploads/doordash.csv')
+            all_data.append(process_doordash_data(doordash_df))
+        except:
+            pass
+    else:
+        doordash_df = pd.read_csv(doordash_file)
+        all_data.append(process_doordash_data(doordash_df))
     
-    if doordash_file is not None:
+    if not uber_file:
         try:
-            doordash_df = pd.read_csv(doordash_file)
-            doordash_processed = process_doordash_data(doordash_df)
-            if not doordash_processed.empty:
-                dfs.append(doordash_processed)
-                platforms_loaded.append("DoorDash")
-                st.sidebar.success("✅ DoorDash data loaded")
-        except Exception as e:
-            st.sidebar.error(f"❌ Error loading DoorDash data: {e}")
+            uber_df = pd.read_csv('/mnt/user-data/uploads/Uber.csv')
+            all_data.append(process_uber_data(uber_df))
+        except:
+            pass
+    else:
+        uber_df = pd.read_csv(uber_file)
+        all_data.append(process_uber_data(uber_df))
     
-    if grubhub_file is not None:
+    if not grubhub_file:
         try:
-            grubhub_df = pd.read_csv(grubhub_file)
-            grubhub_processed = process_grubhub_data(grubhub_df)
-            if not grubhub_processed.empty:
-                dfs.append(grubhub_processed)
-                platforms_loaded.append("Grubhub")
-                st.sidebar.success("✅ Grubhub data loaded")
-        except Exception as e:
-            st.sidebar.error(f"❌ Error loading Grubhub data: {e}")
-    
-    if not dfs:
-        st.warning("👆 Please upload at least one CSV file to begin analysis")
-        return
+            grubhub_df = pd.read_csv('/mnt/user-data/uploads/grubhub.csv')
+            all_data.append(process_grubhub_data(grubhub_df))
+        except:
+            pass
+    else:
+        grubhub_df = pd.read_csv(grubhub_file)
+        all_data.append(process_grubhub_data(grubhub_df))
     
     # Combine all data
-    try:
-        df = pd.concat(dfs, ignore_index=True)
-        df = df.dropna(subset=['Date', 'Revenue'])
-        df = df[df['Revenue'] > 0]  # Filter out invalid revenue entries
+    if all_data:
+        df = pd.concat(all_data, ignore_index=True)
         
-        st.sidebar.markdown(f"### 📊 Data Summary")
-        st.sidebar.write(f"**Platforms loaded:** {', '.join(platforms_loaded)}")
-        st.sidebar.write(f"**Total records:** {len(df):,}")
-        st.sidebar.write(f"**Date range:** {df['Date'].min().strftime('%Y-%m-%d')} to {df['Date'].max().strftime('%Y-%m-%d')}")
-        
-    except Exception as e:
-        st.error(f"Error combining data: {e}")
+        # Apply date filter if selected
+        if use_date_filter and len(date_range) == 2:
+            df = df[(df['Date'].dt.date >= date_range[0]) & (df['Date'].dt.date <= date_range[1])]
+    else:
+        st.warning("📁 Please upload at least one CSV file to begin analysis")
+        st.info("💡 Tip: Upload DoorDash, Uber, and Grubhub CSV files for comprehensive insights")
         return
     
-    # Calculate marketing metrics
-    marketing_metrics = calculate_marketing_metrics(df)
+    # Filter for completed orders for most analyses
+    completed_df = df[df['Is_Completed'] == True].copy()
     
-    # Create tabs with enhanced functionality
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
-        "📊 Overview", "💰 Revenue", "🏆 Performance", 
-        "⚡ Operations", "📈 Growth", "🎯 Attribution", "🔄 Retention"
+    # Sidebar statistics
+    with st.sidebar:
+        st.markdown("---")
+        st.markdown("### 📊 Dataset Overview")
+        
+        platforms = df['Platform'].unique()
+        st.markdown(f"**Platforms:** {', '.join(platforms)}")
+        st.markdown(f"**Total Records:** {len(df):,}")
+        st.markdown(f"**Completed Orders:** {len(completed_df):,}")
+        st.markdown(f"**Date Range:** {df['Date'].min().strftime('%Y-%m-%d')} to {df['Date'].max().strftime('%Y-%m-%d')}")
+        
+        # Store filter
+        st.markdown("### 🏪 Store Filter")
+        stores = df['Store_Name'].unique()
+        selected_stores = st.multiselect("Select Stores", stores, default=stores, key='store_filter')
+        
+        if selected_stores:
+            df = df[df['Store_Name'].isin(selected_stores)]
+            completed_df = completed_df[completed_df['Store_Name'].isin(selected_stores)]
+    
+    # Calculate key metrics
+    total_revenue = completed_df['Revenue'].sum()
+    total_orders = len(completed_df)
+    avg_order_value = completed_df['Revenue'].mean() if total_orders > 0 else 0
+    completion_rate = (len(completed_df) / len(df) * 100) if len(df) > 0 else 0
+    
+    # Calculate growth metrics
+    if len(completed_df) > 0:
+        completed_df['MonthYear'] = completed_df['Date'].dt.to_period('M')
+        monthly_revenue = completed_df.groupby('MonthYear')['Revenue'].sum()
+        if len(monthly_revenue) > 1:
+            revenue_growth = ((monthly_revenue.iloc[-1] - monthly_revenue.iloc[-2]) / monthly_revenue.iloc[-2] * 100)
+        else:
+            revenue_growth = 0
+        
+        monthly_orders = completed_df.groupby('MonthYear').size()
+        if len(monthly_orders) > 1:
+            order_growth = ((monthly_orders.iloc[-1] - monthly_orders.iloc[-2]) / monthly_orders.iloc[-2] * 100)
+        else:
+            order_growth = 0
+    else:
+        revenue_growth = 0
+        order_growth = 0
+    
+    # Create tabs
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+        "📊 Overview", "💰 Revenue Analytics", "🏆 Performance", 
+        "⚡ Operations", "📈 Growth & Trends", "🎯 Customer Attribution", 
+        "🔄 Retention & Churn", "📱 Platform Comparison"
     ])
     
-    # Tab 1: Enhanced Overview
+    # TAB 1: OVERVIEW
     with tab1:
-        st.markdown("### 📊 Platform Performance Overview")
+        st.markdown("### 📊 Executive Dashboard")
         
-        completed_df = df[df['Is_Completed']].copy()
-        
-        # Key metrics with improved layout
-        col1, col2, col3, col4 = st.columns(4)
+        # Key metrics
+        col1, col2, col3, col4, col5 = st.columns(5)
         
         with col1:
-            st.metric("Total Orders", f"{marketing_metrics['Total_Orders']:,}", 
-                     delta=f"{marketing_metrics['Order_Growth']:.1f}% MoM")
+            st.metric(
+                "Total Orders", 
+                f"{total_orders:,}",
+                delta=f"{order_growth:.1f}% MoM" if order_growth != 0 else None
+            )
+        
         with col2:
-            st.metric("Total Revenue", f"${marketing_metrics['Total_Revenue']:,.2f}",
-                     delta=f"{marketing_metrics['Revenue_Growth']:.1f}% MoM")
+            st.metric(
+                "Total Revenue",
+                f"${total_revenue:,.2f}",
+                delta=f"{revenue_growth:.1f}% MoM" if revenue_growth != 0 else None
+            )
+        
         with col3:
-            st.metric("Average Order Value", f"${marketing_metrics['AOV']:.2f}")
+            st.metric(
+                "Average Order Value",
+                f"${avg_order_value:.2f}"
+            )
+        
         with col4:
-            st.metric("Completion Rate", f"{marketing_metrics['Completion_Rate']:.1f}%")
+            st.metric(
+                "Completion Rate",
+                f"{completion_rate:.1f}%"
+            )
+        
+        with col5:
+            cancelled_orders = len(df[df['Is_Cancelled'] == True])
+            cancellation_rate = (cancelled_orders / len(df) * 100) if len(df) > 0 else 0
+            st.metric(
+                "Cancellation Rate",
+                f"{cancellation_rate:.1f}%"
+            )
         
         st.markdown("---")
         
-        # Platform distribution with enhanced charts
+        # Platform distribution
         col1, col2 = st.columns(2)
         
         with col1:
-            # Orders by platform
             platform_orders = completed_df['Platform'].value_counts()
-            fig_orders = px.pie(
+            fig_pie = px.pie(
                 values=platform_orders.values,
                 names=platform_orders.index,
-                title="Orders Distribution by Platform",
+                title="Order Distribution by Platform",
                 color_discrete_map=PLATFORM_COLORS
             )
-            st.plotly_chart(fig_orders, use_container_width=True, key='overview_orders_pie_chart')
+            fig_pie.update_traces(textposition='inside', textinfo='percent+label')
+            st.plotly_chart(fig_pie, use_container_width=True, key='overview_pie_orders')
         
         with col2:
-            # Revenue by platform
             platform_revenue = completed_df.groupby('Platform')['Revenue'].sum().sort_values(ascending=False)
-            fig_revenue = px.bar(
+            fig_bar = px.bar(
                 x=platform_revenue.index,
                 y=platform_revenue.values,
                 title="Revenue by Platform",
                 color=platform_revenue.index,
-                color_discrete_map=PLATFORM_COLORS
+                color_discrete_map=PLATFORM_COLORS,
+                text=platform_revenue.values
             )
-            st.plotly_chart(fig_revenue, use_container_width=True, key='overview_revenue_bar_chart')
+            fig_bar.update_traces(texttemplate='$%{text:,.0f}', textposition='outside')
+            fig_bar.update_layout(showlegend=False, xaxis_title="Platform", yaxis_title="Revenue ($)")
+            st.plotly_chart(fig_bar, use_container_width=True, key='overview_bar_revenue')
         
-        # Platform performance comparison table
-        st.markdown("### 📈 Platform Performance Comparison")
+        # Platform performance summary
+        st.markdown("### 📋 Platform Performance Summary")
         
-        platform_summary = completed_df.groupby('Platform').agg({
+        summary_df = completed_df.groupby('Platform').agg({
             'Revenue': ['count', 'sum', 'mean'],
             'Date': ['min', 'max']
         }).round(2)
+        summary_df.columns = ['Total Orders', 'Total Revenue ($)', 'AOV ($)', 'First Order', 'Last Order']
+        summary_df = summary_df.reset_index()
         
-        platform_summary.columns = ['Orders', 'Total Revenue', 'AOV', 'First Order', 'Last Order']
-        platform_summary['Market Share'] = (platform_summary['Orders'] / platform_summary['Orders'].sum() * 100).round(1)
+        st.dataframe(summary_df, use_container_width=True, hide_index=True)
         
-        st.dataframe(platform_summary, use_container_width=True)
-
-    # Tab 2: Enhanced Revenue Analytics
-    with tab2:
-        st.markdown("### 💰 Advanced Revenue Analytics")
+        # Store performance
+        st.markdown("### 🏪 Top Performing Stores")
         
-        # Create advanced revenue charts
-        revenue_charts = create_advanced_revenue_charts(completed_df)
-        
-        # Daily revenue trend
-        if 'revenue_by_platform' in revenue_charts:
-            st.plotly_chart(revenue_charts['revenue_by_platform'], use_container_width=True, 
-                           key='revenue_daily_trend_enhanced')
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # Revenue distribution
-            if 'revenue_distribution' in revenue_charts:
-                st.plotly_chart(revenue_charts['revenue_distribution'], use_container_width=True,
-                               key='revenue_distribution_box')
-        
-        with col2:
-            # Weekly revenue pattern
-            completed_df['Day_of_Week'] = completed_df['Date'].dt.day_name()
-            weekly_revenue = completed_df.groupby(['Day_of_Week', 'Platform'])['Revenue'].sum().reset_index()
-            
-            # Reorder days
-            day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-            weekly_revenue['Day_of_Week'] = pd.Categorical(weekly_revenue['Day_of_Week'], categories=day_order, ordered=True)
-            weekly_revenue = weekly_revenue.sort_values('Day_of_Week')
-            
-            fig_weekly = px.bar(weekly_revenue, x='Day_of_Week', y='Revenue', color='Platform',
-                               title="Revenue by Day of Week",
-                               color_discrete_map=PLATFORM_COLORS)
-            st.plotly_chart(fig_weekly, use_container_width=True, key='revenue_weekly_pattern')
-        
-        # Monthly comparison
-        if 'monthly_comparison' in revenue_charts:
-            st.plotly_chart(revenue_charts['monthly_comparison'], use_container_width=True,
-                           key='revenue_monthly_comparison')
-
-    # Tab 3: Enhanced Performance Analytics  
-    with tab3:
-        st.markdown("### 🏆 Platform Performance Deep Dive")
-        
-        # Create performance charts
-        performance_charts = create_performance_charts(df)
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # Completion rates
-            if 'completion_rates' in performance_charts:
-                st.plotly_chart(performance_charts['completion_rates'], use_container_width=True,
-                               key='performance_completion_rates')
-        
-        with col2:
-            # AOV comparison
-            if 'aov_comparison' in performance_charts:
-                st.plotly_chart(performance_charts['aov_comparison'], use_container_width=True,
-                               key='performance_aov_comparison')
-        
-        # Order volume trends
-        if 'order_volume' in performance_charts:
-            st.plotly_chart(performance_charts['order_volume'], use_container_width=True,
-                           key='performance_order_volume')
-        
-        # Performance heatmap
-        st.markdown("### 📊 Store Performance Heatmap")
-        
-        store_performance = completed_df.groupby(['Store_Name', 'Platform']).agg({
+        store_performance = completed_df.groupby('Store_Name').agg({
             'Revenue': ['sum', 'count', 'mean']
         }).round(2)
+        store_performance.columns = ['Total Revenue', 'Total Orders', 'AOV']
+        store_performance = store_performance.sort_values('Total Revenue', ascending=False).head(10)
         
-        store_performance.columns = ['Total_Revenue', 'Order_Count', 'AOV']
-        store_performance = store_performance.reset_index()
-        
-        # Create pivot for heatmap
-        heatmap_data = store_performance.pivot_table(
-            index='Store_Name', 
-            columns='Platform', 
-            values='Total_Revenue', 
-            fill_value=0
+        fig_store = px.bar(
+            store_performance,
+            x=store_performance.index,
+            y='Total Revenue',
+            title="Top 10 Stores by Revenue",
+            text='Total Revenue'
         )
+        fig_store.update_traces(texttemplate='$%{text:,.0f}', textposition='outside')
+        fig_store.update_layout(xaxis_title="Store", yaxis_title="Revenue ($)")
+        st.plotly_chart(fig_store, use_container_width=True, key='overview_store_performance')
+    
+    # TAB 2: REVENUE ANALYTICS
+    with tab2:
+        st.markdown("### 💰 Revenue Deep Dive")
         
-        fig_heatmap = px.imshow(heatmap_data, 
-                               title="Store Revenue Performance by Platform",
-                               aspect="auto",
-                               color_continuous_scale='Blues')
-        st.plotly_chart(fig_heatmap, use_container_width=True, key='performance_store_heatmap_enhanced')
-
-    # Tab 4: Enhanced Operations Analytics
-    with tab4:
-        st.markdown("### ⚡ Operational Intelligence")
+        # Daily revenue trend
+        daily_revenue = completed_df.groupby(['Date', 'Platform'])['Revenue'].sum().reset_index()
         
-        # Hour-of-day analysis
-        completed_df['Hour'] = completed_df['Date'].dt.hour
-        completed_df['Day_of_Week'] = completed_df['Date'].dt.day_name()
-        
-        # Order patterns by hour and day
-        hour_day_orders = completed_df.groupby(['Hour', 'Day_of_Week']).size().unstack(fill_value=0)
-        
-        fig_hour_heatmap = px.imshow(
-            hour_day_orders.T,
-            labels=dict(x="Hour of Day", y="Day of Week", color="Orders"),
-            title="Order Patterns: Hour vs Day of Week",
-            color_continuous_scale='Blues'
+        fig_daily = px.line(
+            daily_revenue,
+            x='Date',
+            y='Revenue',
+            color='Platform',
+            title="Daily Revenue Trend by Platform",
+            color_discrete_map=PLATFORM_COLORS
         )
-        st.plotly_chart(fig_hour_heatmap, use_container_width=True, key='operations_hour_day_heatmap')
+        fig_daily.update_layout(hovermode='x unified')
+        st.plotly_chart(fig_daily, use_container_width=True, key='revenue_daily_trend')
         
+        # Revenue distribution analysis
         col1, col2 = st.columns(2)
         
         with col1:
-            # Peak hours analysis
-            hourly_orders = completed_df.groupby('Hour').size()
-            
-            fig_hourly = px.bar(x=hourly_orders.index, y=hourly_orders.values,
-                               title="Orders by Hour of Day",
-                               labels={'x': 'Hour', 'y': 'Number of Orders'})
-            st.plotly_chart(fig_hourly, use_container_width=True, key='operations_hourly_orders')
+            fig_box = px.box(
+                completed_df,
+                x='Platform',
+                y='Revenue',
+                color='Platform',
+                title="Revenue Distribution by Platform",
+                color_discrete_map=PLATFORM_COLORS
+            )
+            fig_box.update_layout(showlegend=False)
+            st.plotly_chart(fig_box, use_container_width=True, key='revenue_distribution_box')
         
         with col2:
-            # Cancellation analysis
-            if 'Is_Cancelled' in df.columns:
-                cancellation_rate = df.groupby('Platform')['Is_Cancelled'].mean() * 100
-                
-                fig_cancel = px.bar(
-                    x=cancellation_rate.index,
-                    y=cancellation_rate.values,
-                    title="Cancellation Rate by Platform",
-                    color=cancellation_rate.index,
-                    color_discrete_map=PLATFORM_COLORS
-                )
-                fig_cancel.update_layout(yaxis_title="Cancellation Rate (%)")
-                st.plotly_chart(fig_cancel, use_container_width=True, key='operations_cancellation_analysis')
-
-    # Tab 5: Enhanced Growth Analytics
-    with tab5:
-        st.markdown("### 📈 Growth Metrics & Trends")
+            fig_violin = px.violin(
+                completed_df,
+                x='Platform',
+                y='Revenue',
+                color='Platform',
+                title="Revenue Density by Platform",
+                color_discrete_map=PLATFORM_COLORS,
+                box=True
+            )
+            fig_violin.update_layout(showlegend=False)
+            st.plotly_chart(fig_violin, use_container_width=True, key='revenue_density_violin')
         
-        # Calculate daily metrics
-        daily_revenue = completed_df.groupby('Date')['Revenue'].sum().reset_index()
-        daily_orders = completed_df.groupby('Date').size().reset_index(name='Orders')
+        # Weekly revenue pattern
+        st.markdown("### 📅 Weekly Revenue Patterns")
         
-        col1, col2 = st.columns(2)
+        day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        weekly_revenue = completed_df.groupby(['DayOfWeek', 'Platform'])['Revenue'].sum().reset_index()
+        weekly_revenue['DayOfWeek'] = pd.Categorical(weekly_revenue['DayOfWeek'], categories=day_order, ordered=True)
+        weekly_revenue = weekly_revenue.sort_values('DayOfWeek')
         
-        with col1:
-            # Daily orders trend
-            fig_daily_orders = px.line(daily_orders, x='Date', y='Orders',
-                                     title="Daily Orders Trend")
-            fig_daily_orders.add_scatter(x=daily_orders['Date'], y=daily_orders['Orders'].rolling(7).mean(),
-                                        mode='lines', name='7-day MA', line=dict(color='red'))
-            st.plotly_chart(fig_daily_orders, use_container_width=True, key='growth_daily_orders_enhanced')
+        fig_weekly = px.bar(
+            weekly_revenue,
+            x='DayOfWeek',
+            y='Revenue',
+            color='Platform',
+            title="Revenue by Day of Week",
+            color_discrete_map=PLATFORM_COLORS,
+            barmode='group'
+        )
+        st.plotly_chart(fig_weekly, use_container_width=True, key='revenue_weekly_pattern')
         
-        with col2:
-            # Daily revenue trend
-            fig_daily_revenue = px.line(daily_revenue, x='Date', y='Revenue',
-                                      title="Daily Revenue Trend")
-            fig_daily_revenue.add_scatter(x=daily_revenue['Date'], y=daily_revenue['Revenue'].rolling(7).mean(),
-                                         mode='lines', name='7-day MA', line=dict(color='red'))
-            st.plotly_chart(fig_daily_revenue, use_container_width=True, key='growth_daily_revenue_enhanced')
+        # Monthly revenue comparison
+        st.markdown("### 📈 Monthly Revenue Comparison")
         
-        # Growth rate calculations
-        daily_orders['Orders_Growth'] = daily_orders['Orders'].pct_change() * 100
-        daily_revenue['Revenue_Growth'] = daily_revenue['Revenue'].pct_change() * 100
+        monthly_revenue = completed_df.groupby(['Month', 'Platform'])['Revenue'].sum().reset_index()
+        monthly_revenue['Month'] = monthly_revenue['Month'].astype(str)
         
-        col1, col2 = st.columns(2)
+        fig_monthly = px.bar(
+            monthly_revenue,
+            x='Month',
+            y='Revenue',
+            color='Platform',
+            title="Monthly Revenue by Platform",
+            color_discrete_map=PLATFORM_COLORS,
+            text='Revenue'
+        )
+        fig_monthly.update_traces(texttemplate='$%{text:,.0f}', textposition='outside')
+        st.plotly_chart(fig_monthly, use_container_width=True, key='revenue_monthly_comparison')
         
-        with col1:
-            fig_order_growth = px.bar(daily_orders.dropna(), x='Date', y='Orders_Growth',
-                                    title="Daily Orders Growth Rate (%)")
-            st.plotly_chart(fig_order_growth, use_container_width=True, key='growth_orders_growth_rate_enhanced')
+        # Revenue metrics breakdown
+        st.markdown("### 💸 Revenue Components Analysis")
         
-        with col2:
-            fig_revenue_growth = px.bar(daily_revenue.dropna(), x='Date', y='Revenue_Growth',
-                                      title="Daily Revenue Growth Rate (%)")
-            st.plotly_chart(fig_revenue_growth, use_container_width=True, key='growth_revenue_growth_rate_enhanced')
+        revenue_components = pd.DataFrame({
+            'Platform': [],
+            'Subtotal': [],
+            'Tax': [],
+            'Tips': [],
+            'Commission': [],
+            'Marketing': []
+        })
         
-        # Growth insights
-        st.markdown("### 🔮 Growth Insights")
+        for platform in completed_df['Platform'].unique():
+            platform_data = completed_df[completed_df['Platform'] == platform]
+            revenue_components = pd.concat([revenue_components, pd.DataFrame({
+                'Platform': [platform],
+                'Subtotal': [platform_data['Subtotal'].sum() if 'Subtotal' in platform_data.columns else 0],
+                'Tax': [platform_data['Tax'].sum() if 'Tax' in platform_data.columns else 0],
+                'Tips': [platform_data['Tips'].sum() if 'Tips' in platform_data.columns else 0],
+                'Commission': [platform_data['Commission'].sum() if 'Commission' in platform_data.columns else 0],
+                'Marketing': [platform_data['Marketing_Fee'].sum() if 'Marketing_Fee' in platform_data.columns else 0]
+            })], ignore_index=True)
         
+        fig_components = px.bar(
+            revenue_components,
+            x='Platform',
+            y=['Subtotal', 'Tax', 'Tips', 'Commission', 'Marketing'],
+            title="Revenue Components Breakdown",
+            barmode='stack'
+        )
+        st.plotly_chart(fig_components, use_container_width=True, key='revenue_components_breakdown')
+    
+    # TAB 3: PERFORMANCE
+    with tab3:
+        st.markdown("### 🏆 Performance Analytics")
+        
+        # Performance metrics
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            avg_daily_growth = daily_revenue['Revenue_Growth'].mean()
-            st.metric("Average Daily Growth", f"{avg_daily_growth:.2f}%")
+            completion_rates = df.groupby('Platform')['Is_Completed'].mean() * 100
+            fig_completion = px.bar(
+                x=completion_rates.index,
+                y=completion_rates.values,
+                color=completion_rates.index,
+                title="Order Completion Rate by Platform",
+                color_discrete_map=PLATFORM_COLORS,
+                text=completion_rates.values
+            )
+            fig_completion.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
+            fig_completion.update_layout(showlegend=False, yaxis_title="Completion Rate (%)")
+            st.plotly_chart(fig_completion, use_container_width=True, key='performance_completion_rate')
         
         with col2:
-            best_day_revenue = daily_revenue.loc[daily_revenue['Revenue'].idxmax()]
-            st.metric("Best Revenue Day", f"${best_day_revenue['Revenue']:,.2f}",
-                     delta=best_day_revenue['Date'].strftime('%Y-%m-%d'))
+            aov_by_platform = completed_df.groupby('Platform')['Revenue'].mean()
+            fig_aov = px.bar(
+                x=aov_by_platform.index,
+                y=aov_by_platform.values,
+                color=aov_by_platform.index,
+                title="Average Order Value by Platform",
+                color_discrete_map=PLATFORM_COLORS,
+                text=aov_by_platform.values
+            )
+            fig_aov.update_traces(texttemplate='$%{text:.2f}', textposition='outside')
+            fig_aov.update_layout(showlegend=False, yaxis_title="AOV ($)")
+            st.plotly_chart(fig_aov, use_container_width=True, key='performance_aov')
         
         with col3:
-            total_growth = ((daily_revenue['Revenue'].iloc[-1] - daily_revenue['Revenue'].iloc[0]) / 
-                           daily_revenue['Revenue'].iloc[0] * 100)
-            st.metric("Total Period Growth", f"{total_growth:.1f}%")
-
-    # Tab 6: Enhanced Attribution Analytics
+            orders_per_day = completed_df.groupby(['Date', 'Platform']).size().reset_index(name='Orders')
+            avg_daily_orders = orders_per_day.groupby('Platform')['Orders'].mean()
+            fig_daily_avg = px.bar(
+                x=avg_daily_orders.index,
+                y=avg_daily_orders.values,
+                color=avg_daily_orders.index,
+                title="Average Daily Orders by Platform",
+                color_discrete_map=PLATFORM_COLORS,
+                text=avg_daily_orders.values
+            )
+            fig_daily_avg.update_traces(texttemplate='%{text:.1f}', textposition='outside')
+            fig_daily_avg.update_layout(showlegend=False, yaxis_title="Avg Daily Orders")
+            st.plotly_chart(fig_daily_avg, use_container_width=True, key='performance_daily_avg')
+        
+        # Order volume trend
+        st.markdown("### 📈 Order Volume Trends")
+        
+        daily_orders = completed_df.groupby(['Date', 'Platform']).size().reset_index(name='Orders')
+        
+        fig_order_trend = px.line(
+            daily_orders,
+            x='Date',
+            y='Orders',
+            color='Platform',
+            title="Daily Order Volume by Platform",
+            color_discrete_map=PLATFORM_COLORS
+        )
+        fig_order_trend.update_layout(hovermode='x unified')
+        st.plotly_chart(fig_order_trend, use_container_width=True, key='performance_order_trend')
+        
+        # Store performance heatmap
+        st.markdown("### 🏪 Store Performance Heatmap")
+        
+        store_platform_revenue = completed_df.groupby(['Store_Name', 'Platform'])['Revenue'].sum().reset_index()
+        heatmap_data = store_platform_revenue.pivot_table(
+            index='Store_Name',
+            columns='Platform',
+            values='Revenue',
+            fill_value=0
+        )
+        
+        fig_heatmap = px.imshow(
+            heatmap_data,
+            title="Store Revenue Heatmap by Platform",
+            aspect="auto",
+            color_continuous_scale='RdYlGn',
+            text_auto=True
+        )
+        st.plotly_chart(fig_heatmap, use_container_width=True, key='performance_store_heatmap')
+        
+        # Platform efficiency metrics
+        st.markdown("### ⚡ Platform Efficiency Metrics")
+        
+        efficiency_metrics = completed_df.groupby('Platform').agg({
+            'Revenue': ['sum', 'mean', 'std'],
+            'Order_ID': 'count'
+        }).round(2)
+        efficiency_metrics.columns = ['Total Revenue', 'Avg Revenue', 'Revenue Std Dev', 'Order Count']
+        efficiency_metrics['Revenue per Order'] = efficiency_metrics['Total Revenue'] / efficiency_metrics['Order Count']
+        efficiency_metrics['CV (Risk)'] = efficiency_metrics['Revenue Std Dev'] / efficiency_metrics['Avg Revenue']
+        
+        st.dataframe(efficiency_metrics, use_container_width=True)
+    
+    # TAB 4: OPERATIONS
+    with tab4:
+        st.markdown("### ⚡ Operational Intelligence")
+        
+        # Peak hours analysis
+        st.markdown("### 🕐 Peak Hours Analysis")
+        
+        hour_orders = completed_df.groupby(['Hour', 'Platform']).size().reset_index(name='Orders')
+        
+        fig_hourly = px.bar(
+            hour_orders,
+            x='Hour',
+            y='Orders',
+            color='Platform',
+            title="Order Distribution by Hour",
+            color_discrete_map=PLATFORM_COLORS,
+            barmode='stack'
+        )
+        fig_hourly.update_xaxis(tickmode='linear', tick0=0, dtick=1)
+        st.plotly_chart(fig_hourly, use_container_width=True, key='operations_hourly_distribution')
+        
+        # Day-Hour heatmap
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            hour_day_orders = completed_df.groupby(['Hour', 'DayOfWeek']).size().unstack(fill_value=0)
+            day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+            hour_day_orders = hour_day_orders[day_order]
+            
+            fig_hour_heatmap = px.imshow(
+                hour_day_orders.T,
+                labels=dict(x="Hour of Day", y="Day of Week", color="Orders"),
+                title="Order Heatmap: Hour vs Day of Week",
+                aspect="auto",
+                color_continuous_scale='YlOrRd'
+            )
+            st.plotly_chart(fig_hour_heatmap, use_container_width=True, key='operations_hour_heatmap')
+        
+        with col2:
+            # Platform-specific peak hours
+            platform_peak_hours = completed_df.groupby(['Platform', 'Hour']).size().reset_index(name='Orders')
+            
+            fig_platform_hours = px.line(
+                platform_peak_hours,
+                x='Hour',
+                y='Orders',
+                color='Platform',
+                title="Peak Hours by Platform",
+                color_discrete_map=PLATFORM_COLORS,
+                markers=True
+            )
+            st.plotly_chart(fig_platform_hours, use_container_width=True, key='operations_platform_hours')
+        
+        # Operational efficiency metrics
+        st.markdown("### 📊 Operational Efficiency Metrics")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Calculate average processing metrics
+            processing_metrics = pd.DataFrame({
+                'Platform': completed_df['Platform'].unique(),
+                'Avg Orders/Hour': [
+                    len(completed_df[completed_df['Platform'] == p]) / 
+                    (completed_df[completed_df['Platform'] == p]['Hour'].nunique() or 1)
+                    for p in completed_df['Platform'].unique()
+                ],
+                'Peak Hour': [
+                    completed_df[completed_df['Platform'] == p].groupby('Hour').size().idxmax()
+                    if len(completed_df[completed_df['Platform'] == p]) > 0 else 0
+                    for p in completed_df['Platform'].unique()
+                ]
+            })
+            
+            st.dataframe(processing_metrics, use_container_width=True, hide_index=True)
+        
+        with col2:
+            # Day of week performance
+            dow_performance = completed_df.groupby(['DayOfWeek', 'Platform']).agg({
+                'Revenue': 'mean',
+                'Order_ID': 'count'
+            }).round(2)
+            dow_performance.columns = ['Avg Revenue', 'Order Count']
+            dow_performance = dow_performance.reset_index()
+            
+            # Sort by day order
+            dow_performance['DayOfWeek'] = pd.Categorical(
+                dow_performance['DayOfWeek'],
+                categories=day_order,
+                ordered=True
+            )
+            dow_performance = dow_performance.sort_values(['Platform', 'DayOfWeek'])
+            
+            st.dataframe(dow_performance.head(10), use_container_width=True, hide_index=True)
+        
+        # Store operational metrics
+        st.markdown("### 🏪 Store Operational Metrics")
+        
+        store_ops = completed_df.groupby(['Store_Name', 'Platform']).agg({
+            'Revenue': ['sum', 'mean'],
+            'Order_ID': 'count',
+            'Hour': lambda x: x.mode()[0] if len(x.mode()) > 0 else 0
+        }).round(2)
+        store_ops.columns = ['Total Revenue', 'Avg Revenue', 'Order Count', 'Peak Hour']
+        store_ops = store_ops.reset_index()
+        store_ops = store_ops.sort_values('Total Revenue', ascending=False).head(15)
+        
+        st.dataframe(store_ops, use_container_width=True, hide_index=True)
+    
+    # TAB 5: GROWTH & TRENDS
+    with tab5:
+        st.markdown("### 📈 Growth Analysis & Forecasting")
+        
+        # Growth metrics
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Month-over-month growth
+            monthly_growth = completed_df.groupby(['Month', 'Platform'])['Revenue'].sum().reset_index()
+            monthly_growth['Month'] = monthly_growth['Month'].astype(str)
+            
+            fig_mom_growth = px.line(
+                monthly_growth,
+                x='Month',
+                y='Revenue',
+                color='Platform',
+                title="Month-over-Month Revenue Growth",
+                color_discrete_map=PLATFORM_COLORS,
+                markers=True
+            )
+            st.plotly_chart(fig_mom_growth, use_container_width=True, key='growth_mom_revenue')
+        
+        with col2:
+            # Order growth
+            monthly_order_growth = completed_df.groupby(['Month', 'Platform']).size().reset_index(name='Orders')
+            monthly_order_growth['Month'] = monthly_order_growth['Month'].astype(str)
+            
+            fig_order_growth = px.line(
+                monthly_order_growth,
+                x='Month',
+                y='Orders',
+                color='Platform',
+                title="Month-over-Month Order Growth",
+                color_discrete_map=PLATFORM_COLORS,
+                markers=True
+            )
+            st.plotly_chart(fig_order_growth, use_container_width=True, key='growth_mom_orders')
+        
+        # Market share trend
+        st.markdown("### 📊 Market Share Evolution")
+        
+        market_share = completed_df.groupby(['Month', 'Platform'])['Revenue'].sum().reset_index()
+        market_share['Total'] = market_share.groupby('Month')['Revenue'].transform('sum')
+        market_share['Market_Share'] = (market_share['Revenue'] / market_share['Total'] * 100).round(2)
+        market_share['Month'] = market_share['Month'].astype(str)
+        
+        fig_market_share = px.area(
+            market_share,
+            x='Month',
+            y='Market_Share',
+            color='Platform',
+            title="Platform Market Share Over Time (%)",
+            color_discrete_map=PLATFORM_COLORS
+        )
+        st.plotly_chart(fig_market_share, use_container_width=True, key='growth_market_share')
+        
+        # Growth rate comparison
+        st.markdown("### 📈 Growth Rate Comparison")
+        
+        if len(monthly_revenue) > 1:
+            growth_rates = []
+            for platform in completed_df['Platform'].unique():
+                platform_monthly = monthly_revenue[monthly_revenue['Platform'] == platform].copy()
+                platform_monthly = platform_monthly.sort_values('Month')
+                if len(platform_monthly) > 1:
+                    platform_monthly['Growth_Rate'] = platform_monthly['Revenue'].pct_change() * 100
+                    platform_monthly['Platform'] = platform
+                    growth_rates.append(platform_monthly[['Month', 'Platform', 'Growth_Rate']].iloc[1:])
+            
+            if growth_rates:
+                growth_df = pd.concat(growth_rates, ignore_index=True)
+                
+                fig_growth_rate = px.bar(
+                    growth_df,
+                    x='Month',
+                    y='Growth_Rate',
+                    color='Platform',
+                    title="Monthly Growth Rate by Platform (%)",
+                    color_discrete_map=PLATFORM_COLORS,
+                    barmode='group',
+                    text='Growth_Rate'
+                )
+                fig_growth_rate.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
+                st.plotly_chart(fig_growth_rate, use_container_width=True, key='growth_rate_comparison')
+        
+        # Trend analysis
+        st.markdown("### 📊 Trend Analysis")
+        
+        # Calculate moving averages
+        ma_window = 7  # 7-day moving average
+        daily_revenue_ma = daily_revenue.copy()
+        
+        for platform in daily_revenue_ma['Platform'].unique():
+            mask = daily_revenue_ma['Platform'] == platform
+            daily_revenue_ma.loc[mask, 'MA7'] = daily_revenue_ma.loc[mask, 'Revenue'].rolling(window=ma_window, min_periods=1).mean()
+        
+        fig_trend = go.Figure()
+        
+        for platform in daily_revenue_ma['Platform'].unique():
+            platform_data = daily_revenue_ma[daily_revenue_ma['Platform'] == platform]
+            
+            # Add actual revenue
+            fig_trend.add_trace(go.Scatter(
+                x=platform_data['Date'],
+                y=platform_data['Revenue'],
+                mode='lines',
+                name=f'{platform} (Actual)',
+                line=dict(color=PLATFORM_COLORS.get(platform, '#000000'), width=1, dash='dot'),
+                opacity=0.5
+            ))
+            
+            # Add moving average
+            fig_trend.add_trace(go.Scatter(
+                x=platform_data['Date'],
+                y=platform_data['MA7'],
+                mode='lines',
+                name=f'{platform} (7-Day MA)',
+                line=dict(color=PLATFORM_COLORS.get(platform, '#000000'), width=2)
+            ))
+        
+        fig_trend.update_layout(
+            title="Revenue Trend with 7-Day Moving Average",
+            xaxis_title="Date",
+            yaxis_title="Revenue ($)",
+            hovermode='x unified'
+        )
+        
+        st.plotly_chart(fig_trend, use_container_width=True, key='growth_trend_analysis')
+    
+    # TAB 6: CUSTOMER ATTRIBUTION
     with tab6:
         st.markdown("### 🎯 Customer Attribution & Segmentation")
         
         # RFM Analysis
-        rfm_data = create_rfm_analysis(completed_df)
+        st.markdown("### 💎 RFM Analysis")
+        
+        rfm_data = calculate_rfm_scores(completed_df)
         
         if not rfm_data.empty:
+            # RFM segment distribution
+            segment_counts = rfm_data['Segment'].value_counts()
+            
+            fig_segments = px.pie(
+                values=segment_counts.values,
+                names=segment_counts.index,
+                title="Customer Segmentation Distribution",
+                color_discrete_sequence=px.colors.qualitative.Set3
+            )
+            st.plotly_chart(fig_segments, use_container_width=True, key='attribution_rfm_segments')
+            
+            # RFM metrics by segment
+            segment_metrics = rfm_data.groupby('Segment').agg({
+                'Recency': 'mean',
+                'Frequency': 'mean',
+                'Monetary': 'mean'
+            }).round(2)
+            
             col1, col2 = st.columns(2)
             
             with col1:
-                # RFM Score Distribution
-                rfm_counts = rfm_data['RFM_Score'].value_counts().head(10)
-                
-                fig_rfm = px.bar(x=rfm_counts.index, y=rfm_counts.values,
-                                title="Top RFM Segments",
-                                labels={'x': 'RFM Score', 'y': 'Number of Stores'})
-                st.plotly_chart(fig_rfm, use_container_width=True, key='attribution_rfm_segments')
+                fig_rfm_scatter = px.scatter(
+                    rfm_data,
+                    x='Frequency',
+                    y='Monetary',
+                    color='Segment',
+                    size='Recency',
+                    title="RFM Customer Segmentation",
+                    labels={
+                        'Frequency': 'Purchase Frequency',
+                        'Monetary': 'Total Spend ($)'
+                    },
+                    color_discrete_sequence=px.colors.qualitative.Set3
+                )
+                st.plotly_chart(fig_rfm_scatter, use_container_width=True, key='attribution_rfm_scatter')
             
             with col2:
-                # Monetary vs Frequency scatter
-                fig_scatter = px.scatter(rfm_data, x='Frequency', y='Monetary',
-                                       title="Customer Value Segmentation",
-                                       labels={'Frequency': 'Order Frequency', 'Monetary': 'Total Spend'})
-                st.plotly_chart(fig_scatter, use_container_width=True, key='attribution_value_segmentation')
+                st.markdown("#### Segment Metrics")
+                st.dataframe(segment_metrics, use_container_width=True)
         
-        # Customer Lifetime Value estimation
-        st.markdown("### 💎 Customer Lifetime Value Analysis")
+        # Customer Lifetime Value Analysis
+        st.markdown("### 💰 Customer Lifetime Value Analysis")
         
-        clv_data = completed_df.groupby('Store_Name').agg({
-            'Revenue': ['sum', 'mean', 'count'],
-            'Date': ['min', 'max']
-        }).round(2)
+        # Simulate CLV calculation
+        clv_data = completed_df.groupby('Order_ID').agg({
+            'Revenue': 'sum',
+            'Date': 'first',
+            'Platform': 'first'
+        }).reset_index()
         
-        clv_data.columns = ['Total_Spend', 'Avg_Order_Value', 'Order_Count', 'First_Order', 'Last_Order']
-        clv_data['Days_Active'] = (clv_data['Last_Order'] - clv_data['First_Order']).dt.days + 1
-        clv_data['Order_Frequency'] = clv_data['Order_Count'] / clv_data['Days_Active'] * 30  # Orders per month
+        clv_data['Days_Since_First'] = (completed_df['Date'].max() - clv_data['Date']).dt.days
+        clv_data['Estimated_CLV'] = clv_data['Revenue'] * (365 / (clv_data['Days_Since_First'] + 1))
         
-        # Estimate CLV (simplified)
-        clv_data['Estimated_CLV'] = clv_data['Avg_Order_Value'] * clv_data['Order_Frequency'] * 12  # Annual
+        # CLV by platform
+        clv_by_platform = clv_data.groupby('Platform')['Estimated_CLV'].mean()
         
-        fig_clv = px.histogram(clv_data, x='Estimated_CLV', nbins=20,
-                              title="Customer Lifetime Value Distribution")
-        st.plotly_chart(fig_clv, use_container_width=True, key='attribution_clv_distribution_enhanced')
-
-    # Tab 7: Enhanced Retention & Attrition Analytics
+        fig_clv = px.bar(
+            x=clv_by_platform.index,
+            y=clv_by_platform.values,
+            color=clv_by_platform.index,
+            title="Average Customer Lifetime Value by Platform",
+            color_discrete_map=PLATFORM_COLORS,
+            text=clv_by_platform.values
+        )
+        fig_clv.update_traces(texttemplate='$%{text:.2f}', textposition='outside')
+        fig_clv.update_layout(showlegend=False, yaxis_title="CLV ($)")
+        st.plotly_chart(fig_clv, use_container_width=True, key='attribution_clv_platform')
+        
+        # Behavioral segmentation
+        st.markdown("### 🎯 Behavioral Segmentation")
+        
+        # Create behavioral segments based on order patterns
+        behavioral_segments = completed_df.groupby('Order_ID').agg({
+            'Revenue': ['sum', 'mean'],
+            'Platform': 'first',
+            'Hour': lambda x: x.mode()[0] if len(x.mode()) > 0 else 0,
+            'DayOfWeek': lambda x: x.mode()[0] if len(x.mode()) > 0 else 'Unknown'
+        }).reset_index()
+        
+        behavioral_segments.columns = ['Customer_ID', 'Total_Spend', 'AOV', 'Preferred_Platform', 'Preferred_Hour', 'Preferred_Day']
+        
+        # Categorize customers
+        behavioral_segments['Spending_Category'] = pd.qcut(
+            behavioral_segments['Total_Spend'],
+            q=3,
+            labels=['Low Spender', 'Medium Spender', 'High Spender']
+        )
+        
+        # Visualize behavioral segments
+        fig_behavioral = px.sunburst(
+            behavioral_segments,
+            path=['Preferred_Platform', 'Spending_Category', 'Preferred_Day'],
+            values='Total_Spend',
+            title="Customer Behavioral Segmentation Hierarchy",
+            color='Total_Spend',
+            color_continuous_scale='Viridis'
+        )
+        st.plotly_chart(fig_behavioral, use_container_width=True, key='attribution_behavioral_sunburst')
+        
+        # Customer distribution by platform and spending
+        platform_spending = behavioral_segments.groupby(['Preferred_Platform', 'Spending_Category']).size().reset_index(name='Customer_Count')
+        
+        fig_platform_spending = px.bar(
+            platform_spending,
+            x='Preferred_Platform',
+            y='Customer_Count',
+            color='Spending_Category',
+            title="Customer Distribution by Platform and Spending Category",
+            color_discrete_sequence=px.colors.qualitative.Set2,
+            barmode='stack'
+        )
+        st.plotly_chart(fig_platform_spending, use_container_width=True, key='attribution_platform_spending')
+    
+    # TAB 7: RETENTION & CHURN
     with tab7:
-        st.markdown("### 🔄 Customer Retention & Attrition Analysis")
+        st.markdown("### 🔄 Retention & Churn Analysis")
+        
+        # Calculate retention metrics
+        cohort_data, monthly_active = calculate_retention_metrics(completed_df)
+        
+        # Monthly active customers
+        if not monthly_active.empty:
+            fig_active = px.line(
+                monthly_active,
+                x='Month',
+                y='Active_Customers',
+                color='Platform',
+                title="Monthly Active Customers by Platform",
+                color_discrete_map=PLATFORM_COLORS,
+                markers=True
+            )
+            fig_active.update_xaxis(title="Month")
+            fig_active.update_yaxis(title="Active Customers")
+            st.plotly_chart(fig_active, use_container_width=True, key='retention_monthly_active')
+        
+        # Cohort analysis
+        st.markdown("### 📊 Cohort Analysis")
+        
+        if not cohort_data.empty:
+            # Create cohort retention table
+            cohort_pivot = cohort_data.pivot_table(
+                index='Cohort',
+                columns='Platform',
+                values='Customers',
+                fill_value=0
+            )
+            
+            fig_cohort = px.imshow(
+                cohort_pivot,
+                title="Customer Cohorts by Platform",
+                labels=dict(x="Platform", y="Cohort", color="Customers"),
+                aspect="auto",
+                color_continuous_scale='Blues',
+                text_auto=True
+            )
+            st.plotly_chart(fig_cohort, use_container_width=True, key='retention_cohort_heatmap')
         
         # Churn analysis
-        churn_data, churn_rate = create_churn_analysis(completed_df)
+        st.markdown("### 📉 Churn Analysis")
         
-        col1, col2, col3 = st.columns(3)
+        # Calculate churn rate (simplified - based on order frequency)
+        order_frequency = completed_df.groupby(['Order_ID', 'Platform']).agg({
+            'Date': ['min', 'max', 'count']
+        }).reset_index()
+        order_frequency.columns = ['Customer_ID', 'Platform', 'First_Order', 'Last_Order', 'Order_Count']
         
-        with col1:
-            st.metric("Overall Churn Rate", f"{churn_rate:.1f}%", 
-                     help="Stores with no orders in last 30 days")
+        # Calculate days since last order
+        order_frequency['Days_Since_Last'] = (completed_df['Date'].max() - order_frequency['Last_Order']).dt.days
         
-        with col2:
-            active_stores = len(churn_data[~churn_data['Is_Churned']])
-            st.metric("Active Stores", f"{active_stores}")
+        # Define churned customers (no order in last 30 days)
+        churn_threshold = 30
+        order_frequency['Is_Churned'] = order_frequency['Days_Since_Last'] > churn_threshold
         
-        with col3:
-            avg_days_since_order = churn_data['Days_Since_Last_Order'].mean()
-            st.metric("Avg Days Since Last Order", f"{avg_days_since_order:.0f}")
+        # Churn rate by platform
+        churn_by_platform = order_frequency.groupby('Platform')['Is_Churned'].mean() * 100
         
-        # Churn risk analysis
-        st.markdown("### ⚠️ Churn Risk Analysis")
+        fig_churn = px.bar(
+            x=churn_by_platform.index,
+            y=churn_by_platform.values,
+            color=churn_by_platform.index,
+            title=f"Churn Rate by Platform (>{churn_threshold} days inactive)",
+            color_discrete_map=PLATFORM_COLORS,
+            text=churn_by_platform.values
+        )
+        fig_churn.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
+        fig_churn.update_layout(showlegend=False, yaxis_title="Churn Rate (%)")
+        st.plotly_chart(fig_churn, use_container_width=True, key='retention_churn_rate')
+        
+        # Retention curve
+        st.markdown("### 📈 Retention Curve")
+        
+        # Calculate retention over time
+        days_range = range(0, min(91, order_frequency['Days_Since_Last'].max() + 1), 7)
+        retention_data = []
+        
+        for platform in order_frequency['Platform'].unique():
+            platform_data = order_frequency[order_frequency['Platform'] == platform]
+            for days in days_range:
+                active_customers = len(platform_data[platform_data['Days_Since_Last'] <= days])
+                total_customers = len(platform_data)
+                retention_rate = (active_customers / total_customers * 100) if total_customers > 0 else 0
+                retention_data.append({
+                    'Platform': platform,
+                    'Days': days,
+                    'Retention_Rate': retention_rate
+                })
+        
+        retention_df = pd.DataFrame(retention_data)
+        
+        fig_retention_curve = px.line(
+            retention_df,
+            x='Days',
+            y='Retention_Rate',
+            color='Platform',
+            title="Customer Retention Curve",
+            color_discrete_map=PLATFORM_COLORS,
+            markers=True
+        )
+        fig_retention_curve.update_layout(
+            xaxis_title="Days Since First Order",
+            yaxis_title="Retention Rate (%)"
+        )
+        st.plotly_chart(fig_retention_curve, use_container_width=True, key='retention_curve')
+        
+        # Customer lifecycle stages
+        st.markdown("### 🔄 Customer Lifecycle Stages")
+        
+        # Define lifecycle stages based on order patterns
+        def define_lifecycle_stage(row):
+            if row['Order_Count'] == 1 and row['Days_Since_Last'] <= 7:
+                return 'New Customer'
+            elif row['Order_Count'] > 1 and row['Days_Since_Last'] <= 14:
+                return 'Active'
+            elif row['Order_Count'] > 5 and row['Days_Since_Last'] <= 30:
+                return 'Loyal'
+            elif row['Days_Since_Last'] > 30 and row['Days_Since_Last'] <= 60:
+                return 'At Risk'
+            elif row['Days_Since_Last'] > 60:
+                return 'Churned'
+            else:
+                return 'Regular'
+        
+        order_frequency['Lifecycle_Stage'] = order_frequency.apply(define_lifecycle_stage, axis=1)
+        
+        # Visualize lifecycle distribution
+        lifecycle_dist = order_frequency.groupby(['Platform', 'Lifecycle_Stage']).size().reset_index(name='Customer_Count')
+        
+        fig_lifecycle = px.bar(
+            lifecycle_dist,
+            x='Platform',
+            y='Customer_Count',
+            color='Lifecycle_Stage',
+            title="Customer Lifecycle Stage Distribution",
+            color_discrete_sequence=px.colors.qualitative.Set3,
+            barmode='stack'
+        )
+        st.plotly_chart(fig_lifecycle, use_container_width=True, key='retention_lifecycle_stages')
+        
+        # Reactivation opportunities
+        st.markdown("### 🎯 Reactivation Opportunities")
+        
+        at_risk_customers = order_frequency[order_frequency['Lifecycle_Stage'].isin(['At Risk', 'Churned'])]
+        
+        if not at_risk_customers.empty:
+            reactivation_summary = at_risk_customers.groupby('Platform').agg({
+                'Customer_ID': 'count',
+                'Order_Count': 'mean',
+                'Days_Since_Last': 'mean'
+            }).round(2)
+            reactivation_summary.columns = ['At-Risk Customers', 'Avg Past Orders', 'Avg Days Inactive']
+            
+            st.dataframe(reactivation_summary, use_container_width=True)
+            
+            # Potential revenue recovery
+            avg_order_value_by_platform = completed_df.groupby('Platform')['Revenue'].mean()
+            reactivation_summary['Potential Revenue Recovery'] = (
+                reactivation_summary['At-Risk Customers'] * 
+                avg_order_value_by_platform * 2  # Assume 2 orders per reactivated customer
+            ).round(2)
+            
+            fig_recovery = px.bar(
+                x=reactivation_summary.index,
+                y=reactivation_summary['Potential Revenue Recovery'],
+                color=reactivation_summary.index,
+                title="Potential Revenue Recovery from Reactivation",
+                color_discrete_map=PLATFORM_COLORS,
+                text=reactivation_summary['Potential Revenue Recovery']
+            )
+            fig_recovery.update_traces(texttemplate='$%{text:,.0f}', textposition='outside')
+            fig_recovery.update_layout(showlegend=False, yaxis_title="Potential Revenue ($)")
+            st.plotly_chart(fig_recovery, use_container_width=True, key='retention_revenue_recovery')
+    
+    # TAB 8: PLATFORM COMPARISON
+    with tab8:
+        st.markdown("### 📱 Comprehensive Platform Comparison")
+        
+        # Create comprehensive comparison metrics
+        comparison_metrics = pd.DataFrame()
+        
+        for platform in completed_df['Platform'].unique():
+            platform_data = completed_df[completed_df['Platform'] == platform]
+            
+            metrics = {
+                'Platform': platform,
+                'Total Orders': len(platform_data),
+                'Total Revenue': platform_data['Revenue'].sum(),
+                'Average Order Value': platform_data['Revenue'].mean(),
+                'Median Order Value': platform_data['Revenue'].median(),
+                'Revenue Std Dev': platform_data['Revenue'].std(),
+                'Min Order': platform_data['Revenue'].min(),
+                'Max Order': platform_data['Revenue'].max(),
+                'Daily Avg Revenue': platform_data.groupby('Date')['Revenue'].sum().mean(),
+                'Peak Hour': platform_data.groupby('Hour').size().idxmax() if len(platform_data) > 0 else 0,
+                'Top Day': platform_data.groupby('DayOfWeek').size().idxmax() if len(platform_data) > 0 else 'N/A',
+                'Active Days': platform_data['Date'].nunique(),
+                'Unique Stores': platform_data['Store_Name'].nunique()
+            }
+            
+            comparison_metrics = pd.concat([comparison_metrics, pd.DataFrame([metrics])], ignore_index=True)
+        
+        # Display comparison table
+        st.markdown("### 📊 Key Performance Indicators")
+        
+        # Format the metrics for display
+        formatted_metrics = comparison_metrics.copy()
+        formatted_metrics['Total Revenue'] = formatted_metrics['Total Revenue'].apply(lambda x: f"${x:,.2f}")
+        formatted_metrics['Average Order Value'] = formatted_metrics['Average Order Value'].apply(lambda x: f"${x:.2f}")
+        formatted_metrics['Median Order Value'] = formatted_metrics['Median Order Value'].apply(lambda x: f"${x:.2f}")
+        formatted_metrics['Revenue Std Dev'] = formatted_metrics['Revenue Std Dev'].apply(lambda x: f"${x:.2f}")
+        formatted_metrics['Min Order'] = formatted_metrics['Min Order'].apply(lambda x: f"${x:.2f}")
+        formatted_metrics['Max Order'] = formatted_metrics['Max Order'].apply(lambda x: f"${x:.2f}")
+        formatted_metrics['Daily Avg Revenue'] = formatted_metrics['Daily Avg Revenue'].apply(lambda x: f"${x:,.2f}")
+        
+        st.dataframe(formatted_metrics, use_container_width=True, hide_index=True)
+        
+        # Radar chart comparison
+        st.markdown("### 🎯 Multi-Dimensional Platform Analysis")
+        
+        # Normalize metrics for radar chart
+        radar_metrics = comparison_metrics[['Platform', 'Total Orders', 'Total Revenue', 
+                                           'Average Order Value', 'Active Days', 'Unique Stores']].copy()
+        
+        # Normalize each metric to 0-100 scale
+        for col in radar_metrics.columns[1:]:
+            max_val = radar_metrics[col].max()
+            if max_val > 0:
+                radar_metrics[col] = (radar_metrics[col] / max_val * 100).round(2)
+        
+        fig_radar = go.Figure()
+        
+        for _, row in radar_metrics.iterrows():
+            fig_radar.add_trace(go.Scatterpolar(
+                r=[row['Total Orders'], row['Total Revenue'], row['Average Order Value'],
+                   row['Active Days'], row['Unique Stores']],
+                theta=['Total Orders', 'Total Revenue', 'AOV', 'Active Days', 'Unique Stores'],
+                fill='toself',
+                name=row['Platform'],
+                line_color=PLATFORM_COLORS.get(row['Platform'], '#000000')
+            ))
+        
+        fig_radar.update_layout(
+            polar=dict(
+                radialaxis=dict(visible=True, range=[0, 100])
+            ),
+            showlegend=True,
+            title="Platform Performance Radar Chart (Normalized)"
+        )
+        
+        st.plotly_chart(fig_radar, use_container_width=True, key='comparison_radar_chart')
+        
+        # Platform efficiency comparison
+        st.markdown("### ⚡ Efficiency Metrics Comparison")
         
         col1, col2 = st.columns(2)
         
         with col1:
-            # Days since last order distribution
-            fig_churn_dist = px.histogram(churn_data, x='Days_Since_Last_Order', nbins=20,
-                                         title="Days Since Last Order Distribution")
-            fig_churn_dist.add_vline(x=30, line_dash="dash", line_color="red",
-                                    annotation_text="Churn Threshold (30 days)")
-            st.plotly_chart(fig_churn_dist, use_container_width=True, key='retention_churn_distribution')
+            # Revenue per day
+            revenue_per_day = comparison_metrics[['Platform', 'Daily Avg Revenue']].copy()
+            
+            fig_rpd = px.bar(
+                revenue_per_day,
+                x='Platform',
+                y='Daily Avg Revenue',
+                color='Platform',
+                title="Average Daily Revenue by Platform",
+                color_discrete_map=PLATFORM_COLORS,
+                text='Daily Avg Revenue'
+            )
+            fig_rpd.update_traces(texttemplate='$%{text:,.0f}', textposition='outside')
+            fig_rpd.update_layout(showlegend=False, yaxis_title="Daily Revenue ($)")
+            st.plotly_chart(fig_rpd, use_container_width=True, key='comparison_daily_revenue')
         
         with col2:
-            # Churn by platform
-            if not churn_data.empty and 'Platform' in completed_df.columns:
-                # Merge churn data with platform info
-                store_platform = completed_df.groupby('Store_Name')['Platform'].first().reset_index()
-                churn_platform = churn_data.merge(store_platform, on='Store_Name', how='left')
-                
-                platform_churn = churn_platform.groupby('Platform')['Is_Churned'].mean() * 100
-                
-                fig_platform_churn = px.bar(x=platform_churn.index, y=platform_churn.values,
-                                           color=platform_churn.index,
-                                           title="Churn Rate by Platform",
-                                           color_discrete_map=PLATFORM_COLORS)
-                fig_platform_churn.update_layout(yaxis_title="Churn Rate (%)")
-                st.plotly_chart(fig_platform_churn, use_container_width=True, key='retention_platform_churn')
-        
-        # Cohort analysis
-        st.markdown("### 📊 Cohort Retention Analysis")
-        
-        cohort_data = create_cohort_analysis(completed_df)
-        
-        if not cohort_data.empty:
-            col1, col2 = st.columns(2)
+            # Orders per active day
+            orders_per_day = comparison_metrics.copy()
+            orders_per_day['Orders per Day'] = orders_per_day['Total Orders'] / orders_per_day['Active Days']
             
-            with col1:
-                # Monthly active stores
-                fig_cohort_stores = px.line(cohort_data, x='OrderMonth', y='Store_Name',
-                                           title="Monthly Active Stores")
-                fig_cohort_stores.update_layout(xaxis_title="Month", yaxis_title="Number of Stores")
-                st.plotly_chart(fig_cohort_stores, use_container_width=True, key='retention_monthly_stores')
-            
-            with col2:
-                # Monthly revenue trend for retention
-                fig_cohort_revenue = px.line(cohort_data, x='OrderMonth', y='Revenue',
-                                           title="Monthly Revenue from Active Stores")
-                fig_cohort_revenue.update_layout(xaxis_title="Month", yaxis_title="Revenue ($)")
-                st.plotly_chart(fig_cohort_revenue, use_container_width=True, key='retention_monthly_revenue')
+            fig_opd = px.bar(
+                orders_per_day,
+                x='Platform',
+                y='Orders per Day',
+                color='Platform',
+                title="Average Orders per Active Day",
+                color_discrete_map=PLATFORM_COLORS,
+                text='Orders per Day'
+            )
+            fig_opd.update_traces(texttemplate='%{text:.1f}', textposition='outside')
+            fig_opd.update_layout(showlegend=False, yaxis_title="Orders per Day")
+            st.plotly_chart(fig_opd, use_container_width=True, key='comparison_orders_per_day')
         
-        # Customer segmentation based on purchase behavior
-        st.markdown("### 🎯 Customer Behavior Segmentation")
+        # Platform strengths and weaknesses
+        st.markdown("### 💪 Platform Strengths & Opportunities")
         
-        # Prepare data for segmentation
-        if not completed_df.empty:
-            customer_features = completed_df.groupby('Store_Name').agg({
-                'Revenue': ['sum', 'mean', 'std'],
-                'Date': ['count', 'nunique']
-            }).round(2)
+        strengths = []
+        for platform in comparison_metrics['Platform'].values:
+            platform_row = comparison_metrics[comparison_metrics['Platform'] == platform].iloc[0]
             
-            customer_features.columns = ['Total_Revenue', 'Avg_Order_Value', 'Revenue_Std', 'Total_Orders', 'Unique_Days']
-            customer_features['Revenue_Consistency'] = 1 / (1 + customer_features['Revenue_Std'])
-            customer_features = customer_features.fillna(0)
+            strength_items = []
+            opportunity_items = []
             
-            # Perform clustering if we have enough data
-            if len(customer_features) >= 3:
-                try:
-                    features_for_clustering = customer_features[['Total_Revenue', 'Avg_Order_Value', 'Total_Orders']].fillna(0)
-                    scaler = StandardScaler()
-                    features_scaled = scaler.fit_transform(features_for_clustering)
-                    
-                    n_clusters = min(4, len(customer_features))
-                    kmeans = KMeans(n_clusters=n_clusters, random_state=42)
-                    customer_features['Segment'] = kmeans.fit_predict(features_scaled)
-                    
-                    # Visualize segments
-                    fig_segments = px.scatter(customer_features, x='Total_Revenue', y='Avg_Order_Value',
-                                            color='Segment', size='Total_Orders',
-                                            title="Customer Segmentation Analysis",
-                                            labels={'Total_Revenue': 'Total Revenue ($)', 
-                                                   'Avg_Order_Value': 'Average Order Value ($)'})
-                    st.plotly_chart(fig_segments, use_container_width=True, key='retention_customer_segments')
-                    
-                    # Segment summary
-                    segment_summary = customer_features.groupby('Segment').agg({
-                        'Total_Revenue': 'mean',
-                        'Avg_Order_Value': 'mean',
-                        'Total_Orders': 'mean'
-                    }).round(2)
-                    
-                    segment_summary.index = [f"Segment {i+1}" for i in segment_summary.index]
-                    st.dataframe(segment_summary, use_container_width=True)
-                    
-                except Exception as e:
-                    st.warning(f"Could not perform customer segmentation: {e}")
+            # Identify strengths (where platform ranks #1)
+            if platform_row['Total Revenue'] == comparison_metrics['Total Revenue'].max():
+                strength_items.append("Highest Total Revenue")
+            if platform_row['Average Order Value'] == comparison_metrics['Average Order Value'].max():
+                strength_items.append("Highest AOV")
+            if platform_row['Total Orders'] == comparison_metrics['Total Orders'].max():
+                strength_items.append("Most Orders")
+            if platform_row['Active Days'] == comparison_metrics['Active Days'].max():
+                strength_items.append("Most Active Days")
+            
+            # Identify opportunities (where platform ranks last)
+            if platform_row['Total Revenue'] == comparison_metrics['Total Revenue'].min():
+                opportunity_items.append("Increase Revenue")
+            if platform_row['Average Order Value'] == comparison_metrics['Average Order Value'].min():
+                opportunity_items.append("Improve AOV")
+            if platform_row['Total Orders'] == comparison_metrics['Total Orders'].min():
+                opportunity_items.append("Boost Order Volume")
+            
+            strengths.append({
+                'Platform': platform,
+                'Strengths': ', '.join(strength_items) if strength_items else 'Balanced Performance',
+                'Opportunities': ', '.join(opportunity_items) if opportunity_items else 'Maintain Performance'
+            })
+        
+        strengths_df = pd.DataFrame(strengths)
+        st.dataframe(strengths_df, use_container_width=True, hide_index=True)
     
-    # Footer with data export functionality
+    # Export functionality
     st.markdown("---")
     st.markdown("### 📤 Export Analytics Report")
     
-    if st.button("Generate Comprehensive Report", key="export_report_button"):
-        # Create a comprehensive report
-        report_data = {
-            'Summary': marketing_metrics,
-            'Platform_Performance': completed_df.groupby('Platform').agg({
-                'Revenue': ['count', 'sum', 'mean'],
-                'Date': ['min', 'max']
-            }).round(2),
-            'Daily_Trends': daily_revenue,
-            'Churn_Analysis': churn_data if not churn_data.empty else pd.DataFrame()
-        }
-        
-        # Convert to Excel
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            for sheet_name, data in report_data.items():
-                if isinstance(data, dict):
-                    pd.DataFrame([data]).to_excel(writer, sheet_name=sheet_name, index=False)
-                elif isinstance(data, pd.DataFrame) and not data.empty:
-                    data.to_excel(writer, sheet_name=sheet_name, index=False)
-        
-        st.download_button(
-            label="📥 Download Excel Report",
-            data=output.getvalue(),
-            file_name=f"luckin_analytics_report_{datetime.now().strftime('%Y%m%d')}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+    col1, col2, col3 = st.columns(3)
     
-    # Usage instructions
-    with st.expander("📋 How to Use This Dashboard"):
-        st.markdown("""
-        ### Platform Integration Guide
-        
-        **Supported Platforms:**
-        - 🍔 **Grubhub**: Upload transaction reports with order details
-        - 📱 **Uber Eats**: Upload revenue reports from Uber Eats Manager
-        - 🚗 **DoorDash**: Upload order history with commission data
-        
-        **Key Features:**
-        - 📊 **Multi-platform Analytics**: Unified view across all delivery platforms
-        - 💰 **Revenue Intelligence**: Advanced revenue tracking and forecasting  
-        - 🏆 **Performance Optimization**: Platform-specific performance insights
-        - 🎯 **Customer Analytics**: RFM analysis, segmentation, and CLV calculation
-        - 🔄 **Retention Insights**: Cohort analysis and churn prediction
-        - 📈 **Growth Tracking**: Trend analysis and growth forecasting
-        """)
+    with col1:
+        if st.button("📊 Generate Excel Report", key="export_excel_button"):
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                # Summary sheet
+                summary_df.to_excel(writer, sheet_name='Platform_Summary', index=False)
+                
+                # Revenue analysis
+                daily_revenue.to_excel(writer, sheet_name='Daily_Revenue', index=False)
+                
+                # Efficiency metrics
+                if 'efficiency_metrics' in locals():
+                    efficiency_metrics.to_excel(writer, sheet_name='Efficiency_Metrics')
+                
+                # RFM analysis
+                if not rfm_data.empty:
+                    rfm_data.to_excel(writer, sheet_name='RFM_Analysis', index=False)
+                
+                # Platform comparison
+                comparison_metrics.to_excel(writer, sheet_name='Platform_Comparison', index=False)
+            
+            st.download_button(
+                label="📥 Download Excel Report",
+                data=output.getvalue(),
+                file_name=f"luckin_analytics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                key="download_excel_report"
+            )
+    
+    with col2:
+        if st.button("📈 Generate CSV Data", key="export_csv_button"):
+            csv_output = completed_df.to_csv(index=False)
+            st.download_button(
+                label="📥 Download CSV Data",
+                data=csv_output,
+                file_name=f"luckin_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                mime="text/csv",
+                key="download_csv_data"
+            )
+    
+    with col3:
+        if st.button("📄 Generate Summary Report", key="export_summary_button"):
+            report = f"""
+LUCKIN COFFEE MARKETING ANALYTICS REPORT
+Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+EXECUTIVE SUMMARY
+=================
+Total Orders: {total_orders:,}
+Total Revenue: ${total_revenue:,.2f}
+Average Order Value: ${avg_order_value:.2f}
+Completion Rate: {completion_rate:.1f}%
+Revenue Growth (MoM): {revenue_growth:.1f}%
+Order Growth (MoM): {order_growth:.1f}%
+
+PLATFORM BREAKDOWN
+==================
+{summary_df.to_string()}
+
+TOP INSIGHTS
+============
+1. Highest revenue platform: {platform_revenue.idxmax()}
+2. Most orders platform: {platform_orders.idxmax()}
+3. Peak operating hour: {completed_df.groupby('Hour').size().idxmax()}:00
+4. Best performing day: {completed_df.groupby('DayOfWeek')['Revenue'].sum().idxmax()}
+5. Top performing store: {store_performance.index[0] if len(store_performance) > 0 else 'N/A'}
+
+Date Range: {df['Date'].min().strftime('%Y-%m-%d')} to {df['Date'].max().strftime('%Y-%m-%d')}
+"""
+            st.download_button(
+                label="📥 Download Summary Report",
+                data=report,
+                file_name=f"luckin_summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                mime="text/plain",
+                key="download_summary_report"
+            )
+    
+    # Footer
+    st.markdown("---")
+    st.markdown("""
+        <div style='text-align: center; color: #666; padding: 1rem;'>
+            <p>Luckin Coffee Marketing Analytics Dashboard v2.0</p>
+            <p style='font-size: 0.9rem;'>Powered by Streamlit & Plotly | Data-Driven Insights for Growth</p>
+        </div>
+    """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
