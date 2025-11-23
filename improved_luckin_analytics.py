@@ -179,26 +179,41 @@ def parse_date_flexible(date_series, formats=None):
     if date_series is None or len(date_series) == 0:
         return pd.Series(dtype='datetime64[ns]')
     
-    # Handle string columns that might contain "########"
+    # Handle string columns that might contain "########" or other invalid formats
     if hasattr(date_series, 'astype'):
         str_series = date_series.astype(str)
-        # Replace "########" with NaN
+        
+        # Count how many dates are invalid
+        invalid_dates = str_series.str.contains('########|#REF!|NULL|nan|None', case=False, na=False, regex=True).sum()
+        if invalid_dates > 0:
+            st.warning(f"Found {invalid_dates} invalid date entries (########, NULL, etc.). These will be skipped.")
+        
+        # Replace invalid date strings with NaT
         str_series = str_series.replace('########', pd.NaT)
         str_series = str_series.replace('#REF!', pd.NaT)
         str_series = str_series.replace('NULL', pd.NaT)
+        str_series = str_series.replace('nan', pd.NaT)
+        str_series = str_series.replace('None', pd.NaT)
     else:
         str_series = pd.Series(date_series).astype(str)
     
-    # Try pandas built-in parser first
+    # Try pandas built-in parser first (best for most formats)
     try:
-        return pd.to_datetime(str_series, errors='coerce', infer_datetime_format=True)
+        parsed = pd.to_datetime(str_series, errors='coerce', infer_datetime_format=True)
+        # Check if we got any valid dates
+        valid_dates = parsed.notna().sum()
+        if valid_dates > 0:
+            return parsed
     except:
         pass
     
-    # Try each format
+    # Try each specific format
     for fmt in formats:
         try:
-            return pd.to_datetime(str_series, format=fmt, errors='coerce')
+            parsed = pd.to_datetime(str_series, format=fmt, errors='coerce')
+            valid_dates = parsed.notna().sum()
+            if valid_dates > 0:
+                return parsed
         except:
             continue
     
@@ -215,6 +230,8 @@ def process_doordash_data(df):
             st.warning("DoorDash data is empty")
             return pd.DataFrame()
         
+        st.info(f"DoorDash: Starting to process {len(df)} rows")
+        
         # Core fields with flexible column mapping
         date_columns = ['时间戳本地日期', 'Date', 'Order Date', '订单日期']
         date_col = None
@@ -224,9 +241,12 @@ def process_doordash_data(df):
                 break
         
         if date_col:
+            st.info(f"DoorDash: Found date column '{date_col}'")
             processed['Date'] = parse_date_flexible(df[date_col])
+            valid_dates = processed['Date'].notna().sum()
+            st.info(f"DoorDash: Parsed {valid_dates} valid dates out of {len(df)} rows")
         else:
-            st.warning("Could not find date column in DoorDash data")
+            st.warning(f"DoorDash: Could not find date column. Available columns: {', '.join(df.columns.tolist()[:10])}")
             processed['Date'] = pd.NaT
         
         processed['Platform'] = 'DoorDash'
@@ -240,9 +260,12 @@ def process_doordash_data(df):
                 break
         
         if revenue_col:
+            st.info(f"DoorDash: Found revenue column '{revenue_col}'")
             processed['Revenue'] = safe_numeric_convert(df[revenue_col])
+            valid_revenue = (processed['Revenue'] != 0).sum()
+            st.info(f"DoorDash: Found {valid_revenue} non-zero revenue entries")
         else:
-            st.warning("Could not find revenue column in DoorDash data")
+            st.warning(f"DoorDash: Could not find revenue column. Available columns: {', '.join(df.columns.tolist()[:10])}")
             processed['Revenue'] = 0
         
         # Optional fields with safe access
@@ -315,17 +338,24 @@ def process_doordash_data(df):
         # Clean data - remove rows with invalid dates or revenue
         initial_length = len(processed)
         processed = processed[processed['Date'].notna()]
+        after_date_filter = len(processed)
         processed = processed[processed['Revenue'].notna()]
+        after_revenue_filter = len(processed)
         processed = processed[processed['Revenue'] != 0]
-        
         final_length = len(processed)
+        
         if initial_length != final_length:
-            st.info(f"DoorDash: Cleaned {initial_length - final_length} invalid records")
+            st.info(f"DoorDash: Removed {initial_length - after_date_filter} rows with invalid dates")
+            st.info(f"DoorDash: Removed {after_date_filter - after_revenue_filter} rows with invalid revenue")
+            st.info(f"DoorDash: Removed {after_revenue_filter - final_length} rows with zero revenue")
+            st.info(f"DoorDash: Final dataset contains {final_length} valid records")
         
         return processed
         
     except Exception as e:
         st.error(f"DoorDash processing error: {str(e)}")
+        import traceback
+        st.error(f"Detailed error: {traceback.format_exc()}")
         return pd.DataFrame()
 
 @st.cache_data
@@ -338,17 +368,18 @@ def process_uber_data(df):
             st.warning("Uber data is empty")
             return pd.DataFrame()
         
-        # Check if we need to skip header rows (Uber files often have description rows)
-        if len(df) > 2 and '订单日期' not in df.columns:
-            # Look for header row containing key Chinese terms
-            for i in range(min(5, len(df))):
-                row_str = ' '.join(df.iloc[i].astype(str).values)
-                if any(term in row_str for term in ['餐厅名称', '订单日期', '收入总额', 'Restaurant', 'Date']):
-                    df.columns = df.iloc[i]
-                    df = df.iloc[i+1:].reset_index(drop=True)
-                    break
+        # Uber CSV has actual headers in the FIRST DATA ROW (row 0 after pandas reads it)
+        # Check if the first row contains column names instead of data
+        first_row_str = ' '.join(df.iloc[0].astype(str).values)
+        if '餐厅名称' in first_row_str or '订单号' in first_row_str or '订单日期' in first_row_str:
+            # Use first row as column headers
+            df.columns = df.iloc[0]
+            df = df.iloc[1:].reset_index(drop=True)
+            st.info(f"Uber: Detected header row in data, adjusted structure. Processing {len(df)} rows.")
         
         # Enhanced column mapping for Uber data
+        st.info(f"Uber: Processing data with columns: {', '.join(df.columns.tolist()[:5])}...")
+        
         date_columns = ['订单日期', 'Order Date', 'Date', '日期']
         date_col = None
         for col in date_columns:
@@ -356,14 +387,13 @@ def process_uber_data(df):
                 date_col = col
                 break
         
-        # Fallback: try by position if column names are unclear
-        if not date_col and len(df.columns) > 8:
-            date_col = df.columns[8]  # Often the 9th column
-        
-        if date_col and date_col in df.columns:
+        if date_col:
+            st.info(f"Uber: Found date column '{date_col}'")
             processed['Date'] = parse_date_flexible(df[date_col])
+            valid_dates = processed['Date'].notna().sum()
+            st.info(f"Uber: Parsed {valid_dates} valid dates out of {len(df)} rows")
         else:
-            st.warning("Could not find date column in Uber data")
+            st.warning(f"Uber: Could not find date column. Available columns: {', '.join(df.columns.tolist()[:10])}")
             processed['Date'] = pd.NaT
             
         processed['Platform'] = 'Uber'
@@ -376,14 +406,13 @@ def process_uber_data(df):
                 revenue_col = col
                 break
         
-        # Fallback: try by position
-        if not revenue_col and len(df.columns) > 41:
-            revenue_col = df.columns[41]  # Often the 42nd column
-        
-        if revenue_col and revenue_col in df.columns:
+        if revenue_col:
+            st.info(f"Uber: Found revenue column '{revenue_col}'")
             processed['Revenue'] = safe_numeric_convert(df[revenue_col])
+            valid_revenue = (processed['Revenue'] != 0).sum()
+            st.info(f"Uber: Found {valid_revenue} non-zero revenue entries")
         else:
-            st.warning("Could not find revenue column in Uber data")
+            st.warning(f"Uber: Could not find revenue column. Available columns: {', '.join(df.columns.tolist()[:10])}")
             processed['Revenue'] = 0
         
         # Optional fields with safe access
@@ -466,17 +495,24 @@ def process_uber_data(df):
         # Clean data
         initial_length = len(processed)
         processed = processed[processed['Date'].notna()]
+        after_date_filter = len(processed)
         processed = processed[processed['Revenue'].notna()]
+        after_revenue_filter = len(processed)
         processed = processed[processed['Revenue'] != 0]
-        
         final_length = len(processed)
+        
         if initial_length != final_length:
-            st.info(f"Uber: Cleaned {initial_length - final_length} invalid records")
+            st.info(f"Uber: Removed {initial_length - after_date_filter} rows with invalid dates")
+            st.info(f"Uber: Removed {after_date_filter - after_revenue_filter} rows with invalid revenue")
+            st.info(f"Uber: Removed {after_revenue_filter - final_length} rows with zero revenue")
+            st.info(f"Uber: Final dataset contains {final_length} valid records")
         
         return processed
         
     except Exception as e:
         st.error(f"Uber processing error: {str(e)}")
+        import traceback
+        st.error(f"Detailed error: {traceback.format_exc()}")
         return pd.DataFrame()
 
 @st.cache_data
@@ -489,8 +525,10 @@ def process_grubhub_data(df):
             st.warning("Grubhub data is empty")
             return pd.DataFrame()
         
+        st.info(f"Grubhub: Starting to process {len(df)} rows")
+        
         # Core fields mapping
-        date_columns = ['transaction_date', 'Date', 'Order Date']
+        date_columns = ['transaction_date', 'Date', 'Order Date', 'order_date']
         date_col = None
         for col in date_columns:
             if col in df.columns:
@@ -498,15 +536,51 @@ def process_grubhub_data(df):
                 break
         
         if date_col:
-            processed['Date'] = parse_date_flexible(df[date_col])
+            st.info(f"Grubhub: Found date column '{date_col}'")
+            
+            # Check if ALL dates are corrupted (########)
+            date_str_series = df[date_col].astype(str)
+            corrupted_dates = date_str_series.str.contains('########', na=False).sum()
+            
+            if corrupted_dates > len(df) * 0.9:  # If more than 90% are corrupted
+                st.error(f"🚨 **Grubhub Date Issue**: All {corrupted_dates} dates are showing as '########'")
+                st.error("**This typically happens when:**")
+                st.error("• The CSV was exported from Excel with date formatting issues")
+                st.error("• Excel couldn't display dates in the column width")
+                st.markdown("**💡 Solution**: Please re-export your Grubhub data:")
+                st.markdown("1. Open the original Grubhub report in Excel")
+                st.markdown("2. Widen the date columns to see the actual dates")
+                st.markdown("3. Save/Export as CSV again")
+                st.markdown("4. Re-upload here")
+                st.markdown("---")
+                st.warning("⚠️ Continuing with revenue data only (no date analysis available)")
+                
+                # Set a default date so revenue analysis can still work
+                processed['Date'] = pd.Timestamp('2025-01-01')  # Placeholder date
+            else:
+                # First check if dates are Excel serial numbers stored as floats
+                if df[date_col].dtype in ['float64', 'int64']:
+                    try:
+                        # Try to convert Excel serial dates (days since 1900-01-01)
+                        processed['Date'] = pd.to_datetime('1899-12-30') + pd.to_timedelta(df[date_col], 'D')
+                        st.info(f"Grubhub: Converted Excel serial dates successfully")
+                    except:
+                        # If that fails, try parsing as strings
+                        processed['Date'] = parse_date_flexible(df[date_col])
+                else:
+                    processed['Date'] = parse_date_flexible(df[date_col])
+                
+                # Check how many valid dates we got
+                valid_dates = processed['Date'].notna().sum()
+                st.info(f"Grubhub: Parsed {valid_dates} valid dates out of {len(df)} rows")
         else:
-            st.warning("Could not find date column in Grubhub data")
+            st.warning(f"Grubhub: Could not find date column. Available columns: {', '.join(df.columns.tolist()[:10])}")
             processed['Date'] = pd.NaT
             
         processed['Platform'] = 'Grubhub'
         
         # Revenue mapping
-        revenue_columns = ['merchant_net_total', 'Net Total', 'Revenue']
+        revenue_columns = ['merchant_net_total', 'Net Total', 'Revenue', 'net_total']
         revenue_col = None
         for col in revenue_columns:
             if col in df.columns:
@@ -514,9 +588,12 @@ def process_grubhub_data(df):
                 break
         
         if revenue_col:
+            st.info(f"Grubhub: Found revenue column '{revenue_col}'")
             processed['Revenue'] = safe_numeric_convert(df[revenue_col])
+            valid_revenue = (processed['Revenue'] != 0).sum()
+            st.info(f"Grubhub: Found {valid_revenue} non-zero revenue entries")
         else:
-            st.warning("Could not find revenue column in Grubhub data")
+            st.warning(f"Grubhub: Could not find revenue column. Available columns: {', '.join(df.columns.tolist()[:10])}")
             processed['Revenue'] = 0
         
         # Optional fields
@@ -533,7 +610,7 @@ def process_grubhub_data(df):
         
         # Store information
         processed['Store_Name'] = df.get('store_name', 'Unknown').astype(str)
-        processed['Store_ID'] = safe_numeric_convert(df.get('store_number', 'Unknown'))
+        processed['Store_ID'] = df.get('store_number', 'Unknown').astype(str)
         
         # Order ID
         order_id_columns = ['order_number', 'Order ID', 'transaction_id']
@@ -572,18 +649,38 @@ def process_grubhub_data(df):
         
         # Clean data
         initial_length = len(processed)
-        processed = processed[processed['Date'].notna()]
-        processed = processed[processed['Revenue'].notna()]
-        processed = processed[processed['Revenue'] != 0]
         
+        # Check if we're using placeholder dates (all same date means corrupted)
+        unique_dates = processed['Date'].nunique()
+        using_placeholder = (unique_dates == 1 and processed['Date'].iloc[0] == pd.Timestamp('2025-01-01'))
+        
+        if not using_placeholder:
+            processed = processed[processed['Date'].notna()]
+            after_date_filter = len(processed)
+        else:
+            after_date_filter = initial_length
+            st.warning("Grubhub: Skipping date validation due to corrupted dates")
+        
+        processed = processed[processed['Revenue'].notna()]
+        after_revenue_filter = len(processed)
+        processed = processed[processed['Revenue'] != 0]
         final_length = len(processed)
-        if initial_length != final_length:
-            st.info(f"Grubhub: Cleaned {initial_length - final_length} invalid records")
+        
+        if not using_placeholder and initial_length != final_length:
+            st.info(f"Grubhub: Removed {initial_length - after_date_filter} rows with invalid dates")
+            st.info(f"Grubhub: Removed {after_date_filter - after_revenue_filter} rows with invalid revenue")
+            st.info(f"Grubhub: Removed {after_revenue_filter - final_length} rows with zero revenue")
+        elif initial_length != final_length:
+            st.info(f"Grubhub: Removed {after_revenue_filter - final_length} rows with zero revenue")
+        
+        st.info(f"Grubhub: Final dataset contains {final_length} valid records")
         
         return processed
         
     except Exception as e:
         st.error(f"Grubhub processing error: {str(e)}")
+        import traceback
+        st.error(f"Detailed error: {traceback.format_exc()}")
         return pd.DataFrame()
 
 def create_enhanced_visualizations():
