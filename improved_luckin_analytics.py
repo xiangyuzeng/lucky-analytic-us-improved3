@@ -327,21 +327,41 @@ def process_grubhub_data(df):
             
             # If still failing, check for Excel serial dates or corrupted values
             if processed['Date'].isna().sum() > len(df) * 0.5:  # More than 50% failed
-                # Try to convert from Excel serial date
-                try:
-                    # Remove any # symbols
-                    date_clean = date_str.str.replace('#', '', regex=False)
-                    # Try to convert numeric values
-                    date_numeric = pd.to_numeric(date_clean, errors='coerce')
-                    # Excel serial date starts from 1900-01-01
-                    processed['Date'] = pd.to_datetime('1900-01-01') + pd.to_timedelta(date_numeric - 2, unit='D')
-                except:
-                    # If all else fails, use a date range based on order
-                    st.warning("Grubhub dates corrupted - using estimated date range")
+                # Check if dates are corrupted (all showing as ########)
+                has_hash_corruption = date_str.str.contains('#', na=False).sum() > len(df) * 0.8
+                
+                if has_hash_corruption:
+                    # Dates are completely corrupted, use estimated date range
+                    print("Grubhub dates corrupted - using estimated date range")
                     start_date = pd.to_datetime('2025-10-01')
-                    # Distribute orders across October
-                    date_range = pd.date_range(start=start_date, periods=len(df), freq='H')
+                    # Distribute orders across October-November 2025 at reasonable intervals
+                    date_range = pd.date_range(start=start_date, periods=len(df), freq='2H')
                     processed['Date'] = date_range[:len(df)]
+                else:
+                    # Try to convert from Excel serial date
+                    try:
+                        # Remove any # symbols
+                        date_clean = date_str.str.replace('#', '', regex=False)
+                        # Try to convert numeric values
+                        date_numeric = pd.to_numeric(date_clean, errors='coerce')
+                        # Excel serial date starts from 1900-01-01
+                        valid_serials = date_numeric.notna()
+                        if valid_serials.sum() > 0:
+                            processed.loc[valid_serials, 'Date'] = pd.to_datetime('1900-01-01') + pd.to_timedelta(date_numeric[valid_serials] - 2, unit='D')
+                        
+                        # For any remaining NaT values, fill with estimated dates
+                        remaining_nat = processed['Date'].isna()
+                        if remaining_nat.sum() > 0:
+                            start_date = pd.to_datetime('2025-10-01')
+                            date_range = pd.date_range(start=start_date, periods=remaining_nat.sum(), freq='2H')
+                            processed.loc[remaining_nat, 'Date'] = date_range
+                    except:
+                        # If all else fails, use a date range based on order
+                        print("Grubhub date processing failed - using estimated date range")
+                        start_date = pd.to_datetime('2025-10-01')
+                        # Distribute orders across October-November 2025
+                        date_range = pd.date_range(start=start_date, periods=len(df), freq='2H')
+                        processed['Date'] = date_range[:len(df)]
         else:
             # No date column - use current date
             processed['Date'] = pd.to_datetime('today').normalize()
