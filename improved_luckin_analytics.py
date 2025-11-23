@@ -371,11 +371,13 @@ def process_grubhub_data(df):
             else:
                 processed[new_col] = 0
         
-        # Order status
+        # Order status - be more lenient with Grubhub data
         if 'transaction_type' in df.columns:
             trans_type = df['transaction_type'].astype(str)
-            processed['Is_Completed'] = trans_type.str.contains('Order|order', case=False, na=False, regex=True)
+            # Mark as cancelled only if explicitly cancelled or refund
             processed['Is_Cancelled'] = trans_type.str.contains('Cancel|cancel|Refund|refund', case=False, na=False, regex=True)
+            # Mark as completed unless it's cancelled
+            processed['Is_Completed'] = ~processed['Is_Cancelled']
         else:
             processed['Is_Completed'] = True
             processed['Is_Cancelled'] = False
@@ -478,12 +480,13 @@ def main():
             dd_processed = process_doordash_data(dd_df)
             if not dd_processed.empty:
                 all_data.append(dd_processed)
-                upload_status.append(f"✅ DoorDash: {len(dd_processed)} orders loaded")
+                completed_count = dd_processed['Is_Completed'].sum()
+                upload_status.append(f"✅ DoorDash: {len(dd_processed)} orders loaded ({completed_count} completed)")
             else:
-                upload_status.append("❌ DoorDash: No valid data found")
+                upload_status.append(f"❌ DoorDash: No valid data found (Raw rows: {len(dd_df)})")
         except Exception as e:
             upload_status.append(f"❌ DoorDash Error: {str(e)[:50]}")
-    
+
     # Process Uber
     if uber_file is not None:
         try:
@@ -491,9 +494,10 @@ def main():
             uber_processed = process_uber_data(uber_df)
             if not uber_processed.empty:
                 all_data.append(uber_processed)
-                upload_status.append(f"✅ Uber: {len(uber_processed)} orders loaded")
+                completed_count = uber_processed['Is_Completed'].sum()
+                upload_status.append(f"✅ Uber: {len(uber_processed)} orders loaded ({completed_count} completed)")
             else:
-                upload_status.append("❌ Uber: No valid data found")
+                upload_status.append(f"❌ Uber: No valid data found (Raw rows: {len(uber_df)})")
         except Exception as e:
             upload_status.append(f"❌ Uber Error: {str(e)[:50]}")
     
@@ -504,9 +508,10 @@ def main():
             gh_processed = process_grubhub_data(gh_df)
             if not gh_processed.empty:
                 all_data.append(gh_processed)
-                upload_status.append(f"✅ Grubhub: {len(gh_processed)} orders loaded")
+                completed_count = gh_processed['Is_Completed'].sum()
+                upload_status.append(f"✅ Grubhub: {len(gh_processed)} orders loaded ({completed_count} completed)")
             else:
-                upload_status.append("❌ Grubhub: No valid data found")
+                upload_status.append(f"❌ Grubhub: No valid data found (Raw rows: {len(gh_df)})")
         except Exception as e:
             upload_status.append(f"❌ Grubhub Error: {str(e)[:50]}")
     
@@ -878,15 +883,18 @@ def main():
         
         # Growth trend chart
         if len(monthly_revenue) > 0:
+            # Format month labels to be more readable (e.g., "Oct 2025")
+            month_labels = [period.strftime('%b %Y') for period in monthly_revenue.index]
+
             fig_growth = make_subplots(
                 rows=2, cols=1,
                 subplot_titles=('Monthly Revenue Trend', 'Monthly Order Volume'),
                 vertical_spacing=0.1
             )
-            
+
             fig_growth.add_trace(
                 go.Scatter(
-                    x=monthly_revenue.index.astype(str),
+                    x=month_labels,
                     y=monthly_revenue.values,
                     mode='lines+markers',
                     name='Revenue',
@@ -895,10 +903,10 @@ def main():
                 ),
                 row=1, col=1
             )
-            
+
             fig_growth.add_trace(
                 go.Scatter(
-                    x=monthly_orders.index.astype(str),
+                    x=month_labels,
                     y=monthly_orders.values,
                     mode='lines+markers',
                     name='Orders',
@@ -907,12 +915,12 @@ def main():
                 ),
                 row=2, col=1
             )
-            
+
             fig_growth.update_layout(height=600, showlegend=False)
             fig_growth.update_xaxes(title_text="Month", row=2, col=1)
             fig_growth.update_yaxes(title_text="Revenue ($)", row=1, col=1)
             fig_growth.update_yaxes(title_text="Number of Orders", row=2, col=1)
-            
+
             st.plotly_chart(fig_growth, use_container_width=True)
     
     # TAB 6: CUSTOMER ATTRIBUTION
@@ -973,10 +981,13 @@ def main():
         
         with col1:
             monthly_order_trend = df.groupby('OrderMonth').size()
-            
+
             if not monthly_order_trend.empty:
+                # Format month labels to be more readable (e.g., "Oct 2025")
+                month_labels = [period.strftime('%b %Y') for period in monthly_order_trend.index]
+
                 fig_monthly = px.bar(
-                    x=monthly_order_trend.index.astype(str),
+                    x=month_labels,
                     y=monthly_order_trend.values,
                     title="Monthly Order Volume",
                     labels={'x': 'Month', 'y': 'Number of Orders'},
@@ -984,13 +995,16 @@ def main():
                     color_continuous_scale='Blues'
                 )
                 st.plotly_chart(fig_monthly, use_container_width=True)
-        
+
         with col2:
             monthly_revenue_trend = df.groupby('OrderMonth')['Revenue'].sum()
-            
+
             if not monthly_revenue_trend.empty:
+                # Format month labels to be more readable (e.g., "Oct 2025")
+                month_labels = [period.strftime('%b %Y') for period in monthly_revenue_trend.index]
+
                 fig_rev = px.bar(
-                    x=monthly_revenue_trend.index.astype(str),
+                    x=month_labels,
                     y=monthly_revenue_trend.values,
                     title="Monthly Revenue",
                     labels={'x': 'Month', 'y': 'Revenue ($)'},
