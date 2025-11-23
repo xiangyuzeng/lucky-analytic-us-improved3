@@ -19,313 +19,90 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS - Refined aesthetic with coffee theme
+# Custom CSS
 st.markdown("""
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600;700&family=Source+Sans+Pro:wght@400;600&display=swap');
-        
-        .main { 
-            padding: 0rem 1rem; 
-            font-family: 'Source Sans Pro', sans-serif;
-        }
-        
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        .main { padding: 0rem 1rem; }
         .luckin-header {
-            background: linear-gradient(135deg, #8B4513 0%, #D2691E 50%, #CD853F 100%);
-            padding: 2.5rem;
-            border-radius: 15px;
+            background: linear-gradient(135deg, #232773 0%, #3d4094 100%);
+            padding: 2rem;
+            border-radius: 10px;
             color: white;
             margin-bottom: 2rem;
-            box-shadow: 0 8px 32px rgba(139, 69, 19, 0.3);
-            position: relative;
-            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(35, 39, 115, 0.2);
         }
-        
-        .luckin-header::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='4'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E") repeat;
-            pointer-events: none;
-        }
-        
-        h1, h2, h3 { 
-            font-family: 'Crimson Pro', serif; 
-            color: #3c2415;
-        }
-        
-        .stTabs [data-baseweb="tab-list"] { 
-            gap: 24px; 
-            background: linear-gradient(90deg, #f5f1eb 0%, #faf8f5 100%);
-            padding: 8px;
-            border-radius: 12px;
-        }
-        
+        h1, h2, h3 { font-family: 'Inter', sans-serif; }
+        .stTabs [data-baseweb="tab-list"] { gap: 24px; }
         .stTabs [data-baseweb="tab"] {
             height: 50px;
-            background: white;
-            border-radius: 8px;
-            padding: 0 20px;
-            border: 2px solid transparent;
-            transition: all 0.3s ease;
-            box-shadow: 0 2px 8px rgba(139, 69, 19, 0.1);
+            background-color: #f8f9fa;
+            border-radius: 10px;
+            padding-left: 24px;
+            padding-right: 24px;
         }
-        
-        .stTabs [data-baseweb="tab"]:hover {
-            border-color: #D2691E;
-            transform: translateY(-1px);
-        }
-        
         .stTabs [data-baseweb="tab-list"] button[aria-selected="true"] {
-            background: linear-gradient(135deg, #8B4513 0%, #D2691E 100%);
+            background-color: #232773;
             color: white;
-            border-color: #8B4513;
-            box-shadow: 0 4px 16px rgba(139, 69, 19, 0.3);
         }
-        
         .metric-card {
             background: white;
-            padding: 2rem;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(139, 69, 19, 0.1);
-            margin-bottom: 1.5rem;
-            border-left: 4px solid #D2691E;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
-        
-        .metric-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 30px rgba(139, 69, 19, 0.15);
-        }
-        
-        .error-alert {
-            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
-            color: white;
-            padding: 1rem 1.5rem;
-            border-radius: 8px;
-            margin: 1rem 0;
-            box-shadow: 0 4px 16px rgba(220, 53, 69, 0.2);
-        }
-        
-        .success-alert {
-            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-            color: white;
-            padding: 1rem 1.5rem;
-            border-radius: 8px;
-            margin: 1rem 0;
-            box-shadow: 0 4px 16px rgba(40, 167, 69, 0.2);
-        }
-        
-        .warning-alert {
-            background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
-            color: #212529;
-            padding: 1rem 1.5rem;
-            border-radius: 8px;
-            margin: 1rem 0;
-            box-shadow: 0 4px 16px rgba(255, 193, 7, 0.2);
-        }
-        
-        .sidebar .stSelectbox, .sidebar .stFileUploader {
-            background: white;
-            border-radius: 8px;
-            border: 1px solid #D2691E;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 1rem;
         }
     </style>
 """, unsafe_allow_html=True)
 
-# Platform Colors - Coffee-themed
+# Platform Colors
 PLATFORM_COLORS = {
-    'DoorDash': '#DC143C',      # Deep red
-    'Uber': '#2F1B14',          # Dark coffee brown  
-    'Grubhub': '#D2691E'        # Orange like coffee beans
+    'DoorDash': '#ff3008',
+    'Uber': '#000000',
+    'Grubhub': '#ff8000'
 }
 
-# Enhanced Data Processing Functions
-def safe_numeric_convert(series, default=0):
-    """Safely convert a series to numeric, handling various data types"""
-    if series is None:
-        return pd.Series([default])
-    
-    if isinstance(series, (int, float)):
-        return pd.Series([series])
-    
-    if isinstance(series, str):
-        return pd.Series([default])
-    
-    try:
-        # Handle pandas Series
-        if hasattr(series, 'fillna'):
-            return pd.to_numeric(series, errors='coerce').fillna(default)
-        else:
-            # Handle other types by converting to series first
-            return pd.to_numeric(pd.Series(series), errors='coerce').fillna(default)
-    except Exception:
-        return pd.Series([default] * len(series) if hasattr(series, '__len__') else [default])
-
-def parse_date_flexible(date_series, formats=None):
-    """Flexibly parse dates with multiple fallback formats"""
-    if formats is None:
-        formats = [
-            '%m/%d/%Y',
-            '%Y-%m-%d', 
-            '%d/%m/%Y',
-            '%m/%d/%y',
-            '%Y/%m/%d',
-            '%d-%m-%Y'
-        ]
-    
-    if date_series is None or len(date_series) == 0:
-        return pd.Series(dtype='datetime64[ns]')
-    
-    # Handle string columns that might contain "########" or other invalid formats
-    if hasattr(date_series, 'astype'):
-        str_series = date_series.astype(str)
-        
-        # Count how many dates are invalid
-        invalid_dates = str_series.str.contains('########|#REF!|NULL|nan|None', case=False, na=False, regex=True).sum()
-        if invalid_dates > 0:
-            st.warning(f"Found {invalid_dates} invalid date entries (########, NULL, etc.). These will be skipped.")
-        
-        # Replace invalid date strings with NaT
-        str_series = str_series.replace('########', pd.NaT)
-        str_series = str_series.replace('#REF!', pd.NaT)
-        str_series = str_series.replace('NULL', pd.NaT)
-        str_series = str_series.replace('nan', pd.NaT)
-        str_series = str_series.replace('None', pd.NaT)
-    else:
-        str_series = pd.Series(date_series).astype(str)
-    
-    # Try pandas built-in parser first (best for most formats)
-    try:
-        parsed = pd.to_datetime(str_series, errors='coerce', infer_datetime_format=True)
-        # Check if we got any valid dates
-        valid_dates = parsed.notna().sum()
-        if valid_dates > 0:
-            return parsed
-    except:
-        pass
-    
-    # Try each specific format
-    for fmt in formats:
-        try:
-            parsed = pd.to_datetime(str_series, format=fmt, errors='coerce')
-            valid_dates = parsed.notna().sum()
-            if valid_dates > 0:
-                return parsed
-        except:
-            continue
-    
-    # Final fallback - coerce everything
-    return pd.to_datetime(str_series, errors='coerce')
-
+# Data Processing Functions with fixed column handling
 @st.cache_data
 def process_doordash_data(df):
-    """Process DoorDash data with enhanced error handling"""
+    """Process DoorDash data with improved error handling"""
     try:
         processed = pd.DataFrame()
         
-        if df is None or len(df) == 0:
-            st.warning("DoorDash data is empty")
-            return pd.DataFrame()
-        
-        st.info(f"DoorDash: Starting to process {len(df)} rows")
-        
-        # Core fields with flexible column mapping
-        date_columns = ['时间戳本地日期', 'Date', 'Order Date', '订单日期']
-        date_col = None
-        for col in date_columns:
-            if col in df.columns:
-                date_col = col
-                break
-        
-        if date_col:
-            st.info(f"DoorDash: Found date column '{date_col}'")
-            processed['Date'] = parse_date_flexible(df[date_col])
-            valid_dates = processed['Date'].notna().sum()
-            st.info(f"DoorDash: Parsed {valid_dates} valid dates out of {len(df)} rows")
-        else:
-            st.warning(f"DoorDash: Could not find date column. Available columns: {', '.join(df.columns.tolist()[:10])}")
-            processed['Date'] = pd.NaT
-        
+        # Core fields
+        processed['Date'] = pd.to_datetime(df['时间戳本地日期'], errors='coerce')
         processed['Platform'] = 'DoorDash'
-        
-        # Revenue mapping with multiple possible column names
-        revenue_columns = ['净总计', 'Net Total', 'Revenue', '收入总额']
-        revenue_col = None
-        for col in revenue_columns:
-            if col in df.columns:
-                revenue_col = col
-                break
-        
-        if revenue_col:
-            st.info(f"DoorDash: Found revenue column '{revenue_col}'")
-            processed['Revenue'] = safe_numeric_convert(df[revenue_col])
-            valid_revenue = (processed['Revenue'] != 0).sum()
-            st.info(f"DoorDash: Found {valid_revenue} non-zero revenue entries")
-        else:
-            st.warning(f"DoorDash: Could not find revenue column. Available columns: {', '.join(df.columns.tolist()[:10])}")
-            processed['Revenue'] = 0
+        processed['Revenue'] = pd.to_numeric(df['净总计'], errors='coerce')
         
         # Optional fields with safe access
-        processed['Subtotal'] = safe_numeric_convert(df.get('小计', 0))
-        processed['Tax'] = safe_numeric_convert(df.get('转交给商家的税款小计', 0))
-        processed['Tips'] = safe_numeric_convert(df.get('员工小费', 0))
-        processed['Commission'] = safe_numeric_convert(df.get('佣金', 0))
-        processed['Marketing_Fee'] = safe_numeric_convert(df.get('营销费 |（包括任何适用税金）', 0))
+        processed['Subtotal'] = pd.to_numeric(df.get('小计', 0), errors='coerce').fillna(0)
+        processed['Tax'] = pd.to_numeric(df.get('转交给商家的税款小计', 0), errors='coerce').fillna(0)
+        processed['Tips'] = pd.to_numeric(df.get('员工小费', 0), errors='coerce').fillna(0)
+        processed['Commission'] = pd.to_numeric(df.get('佣金', 0), errors='coerce').fillna(0)
+        processed['Marketing_Fee'] = pd.to_numeric(df.get('营销费 |（包括任何适用税金）', 0), errors='coerce').fillna(0)
         
         # Process order status
-        status_columns = ['最终订单状态', 'Final Status', 'Order Status', '订单状态']
-        status_col = None
-        for col in status_columns:
-            if col in df.columns:
-                status_col = col
-                break
-                
-        if status_col:
-            status_series = df[status_col].astype(str)
-            processed['Is_Completed'] = status_series.str.contains('Delivered|delivered|完成', case=False, na=False, regex=True)
-            processed['Is_Cancelled'] = status_series.str.contains('Cancelled|cancelled|取消', case=False, na=False, regex=True)
+        if '最终订单状态' in df.columns:
+            processed['Is_Completed'] = df['最终订单状态'].astype(str).str.contains('Delivered|delivered', case=False, na=False, regex=True)
+            processed['Is_Cancelled'] = df['最终订单状态'].astype(str).str.contains('Cancelled|cancelled', case=False, na=False, regex=True)
         else:
             processed['Is_Completed'] = True
             processed['Is_Cancelled'] = False
         
         # Store information
-        store_columns = ['店铺名称', 'Store Name', 'Restaurant Name']
-        store_col = None
-        for col in store_columns:
-            if col in df.columns:
-                store_col = col
-                break
-        
-        processed['Store_Name'] = df[store_col] if store_col else 'Unknown'
+        processed['Store_Name'] = df.get('店铺名称', 'Unknown')
         processed['Store_ID'] = df.get('Store ID', 'Unknown')
         
         # Order ID for unique customer tracking
-        order_id_columns = ['DoorDash 订单 ID', 'Order ID', 'DoorDash Order ID']
-        order_id_col = None
-        for col in order_id_columns:
-            if col in df.columns:
-                order_id_col = col
-                break
-        
-        if order_id_col:
-            processed['Order_ID'] = df[order_id_col].astype(str)
+        if 'DoorDash 订单 ID' in df.columns:
+            processed['Order_ID'] = df['DoorDash 订单 ID'].astype(str)
         else:
             processed['Order_ID'] = pd.Series(range(len(df))).astype(str) + '_dd'
         
         # Time processing
-        time_columns = ['时间戳为本地时间', 'Local Time', 'Order Time']
-        time_col = None
-        for col in time_columns:
-            if col in df.columns:
-                time_col = col
-                break
-        
-        if time_col:
+        if '时间戳为本地时间' in df.columns:
             try:
-                time_series = pd.to_datetime(df[time_col], errors='coerce')
+                time_series = pd.to_datetime(df['时间戳为本地时间'], errors='coerce')
                 processed['Hour'] = time_series.dt.hour.fillna(12)
             except:
                 processed['Hour'] = 12
@@ -335,154 +112,76 @@ def process_doordash_data(df):
         processed['DayOfWeek'] = processed['Date'].dt.day_name()
         processed['Month'] = processed['Date'].dt.to_period('M')
         
-        # Clean data - remove rows with invalid dates or revenue
-        initial_length = len(processed)
+        # Clean data
         processed = processed[processed['Date'].notna()]
-        after_date_filter = len(processed)
         processed = processed[processed['Revenue'].notna()]
-        after_revenue_filter = len(processed)
-        processed = processed[processed['Revenue'] != 0]
-        final_length = len(processed)
-        
-        if initial_length != final_length:
-            st.info(f"DoorDash: Removed {initial_length - after_date_filter} rows with invalid dates")
-            st.info(f"DoorDash: Removed {after_date_filter - after_revenue_filter} rows with invalid revenue")
-            st.info(f"DoorDash: Removed {after_revenue_filter - final_length} rows with zero revenue")
-            st.info(f"DoorDash: Final dataset contains {final_length} valid records")
         
         return processed
-        
     except Exception as e:
-        st.error(f"DoorDash processing error: {str(e)}")
-        import traceback
-        st.error(f"Detailed error: {traceback.format_exc()}")
+        st.error(f"DoorDash processing error: {e}")
         return pd.DataFrame()
 
 @st.cache_data
 def process_uber_data(df):
-    """Process Uber data with enhanced error handling"""
+    """Process Uber data with improved error handling"""
     try:
         processed = pd.DataFrame()
         
-        if df is None or len(df) == 0:
-            st.warning("Uber data is empty")
-            return pd.DataFrame()
+        # Check if we need to skip the first row (description row)
+        if '订单日期' not in df.columns and len(df) > 1:
+            # Try to use the second row as headers
+            df = df.copy()
+            if df.iloc[0].astype(str).str.contains('餐厅名称|订单日期|收入总额').any():
+                df.columns = df.iloc[1]
+                df = df.iloc[2:].reset_index(drop=True)
         
-        # Uber CSV has actual headers in the FIRST DATA ROW (row 0 after pandas reads it)
-        # Check if the first row contains column names instead of data
-        first_row_str = ' '.join(df.iloc[0].astype(str).values)
-        if '餐厅名称' in first_row_str or '订单号' in first_row_str or '订单日期' in first_row_str:
-            # Use first row as column headers
-            df.columns = df.iloc[0]
-            df = df.iloc[1:].reset_index(drop=True)
-            st.info(f"Uber: Detected header row in data, adjusted structure. Processing {len(df)} rows.")
-        
-        # Enhanced column mapping for Uber data
-        st.info(f"Uber: Processing data with columns: {', '.join(df.columns.tolist()[:5])}...")
-        
-        date_columns = ['订单日期', 'Order Date', 'Date', '日期']
-        date_col = None
-        for col in date_columns:
-            if col in df.columns:
-                date_col = col
-                break
+        # Map column names - handle both possible column name formats
+        date_col = '订单日期' if '订单日期' in df.columns else df.columns[8] if len(df.columns) > 8 else None
+        revenue_col = '收入总额' if '收入总额' in df.columns else df.columns[41] if len(df.columns) > 41 else None
+        status_col = '订单状态' if '订单状态' in df.columns else df.columns[7] if len(df.columns) > 7 else None
         
         if date_col:
-            st.info(f"Uber: Found date column '{date_col}'")
-            processed['Date'] = parse_date_flexible(df[date_col])
-            valid_dates = processed['Date'].notna().sum()
-            st.info(f"Uber: Parsed {valid_dates} valid dates out of {len(df)} rows")
+            processed['Date'] = pd.to_datetime(df[date_col], errors='coerce')
         else:
-            st.warning(f"Uber: Could not find date column. Available columns: {', '.join(df.columns.tolist()[:10])}")
             processed['Date'] = pd.NaT
             
         processed['Platform'] = 'Uber'
         
-        # Revenue mapping
-        revenue_columns = ['收入总额', 'Total Revenue', 'Revenue', 'Net Total']
-        revenue_col = None
-        for col in revenue_columns:
-            if col in df.columns:
-                revenue_col = col
-                break
-        
         if revenue_col:
-            st.info(f"Uber: Found revenue column '{revenue_col}'")
-            processed['Revenue'] = safe_numeric_convert(df[revenue_col])
-            valid_revenue = (processed['Revenue'] != 0).sum()
-            st.info(f"Uber: Found {valid_revenue} non-zero revenue entries")
+            processed['Revenue'] = pd.to_numeric(df[revenue_col], errors='coerce')
         else:
-            st.warning(f"Uber: Could not find revenue column. Available columns: {', '.join(df.columns.tolist()[:10])}")
             processed['Revenue'] = 0
         
         # Optional fields with safe access
-        processed['Subtotal'] = safe_numeric_convert(df.get('销售额（不含税费）', 0))
-        processed['Tax'] = safe_numeric_convert(df.get('销售额税费', 0))
-        processed['Tips'] = safe_numeric_convert(df.get('小费', 0))
-        processed['Commission'] = safe_numeric_convert(df.get('平台服务费', 0))
-        processed['Marketing_Fee'] = safe_numeric_convert(df.get('营销调整额', 0))
+        processed['Subtotal'] = pd.to_numeric(df.get('销售额（不含税费）', 0), errors='coerce').fillna(0)
+        processed['Tax'] = pd.to_numeric(df.get('销售额税费', 0), errors='coerce').fillna(0)
+        processed['Tips'] = pd.to_numeric(df.get('小费', 0), errors='coerce').fillna(0)
+        processed['Commission'] = pd.to_numeric(df.get('平台服务费', 0), errors='coerce').fillna(0)
+        processed['Marketing_Fee'] = pd.to_numeric(df.get('营销调整额', 0), errors='coerce').fillna(0)
         
         # Process order status
-        status_columns = ['订单状态', 'Order Status', 'Status']
-        status_col = None
-        for col in status_columns:
-            if col in df.columns:
-                status_col = col
-                break
-        
-        if not status_col and len(df.columns) > 7:
-            status_col = df.columns[7]  # Often the 8th column
-        
         if status_col and status_col in df.columns:
-            status_series = df[status_col].astype(str)
-            processed['Is_Completed'] = status_series.str.contains('已完成|completed|Complete', case=False, na=False, regex=True)
-            processed['Is_Cancelled'] = status_series.str.contains('已取消|cancelled|Cancel', case=False, na=False, regex=True)
+            processed['Is_Completed'] = df[status_col].astype(str).str.contains('已完成|completed', case=False, na=False, regex=True)
+            processed['Is_Cancelled'] = df[status_col].astype(str).str.contains('已取消|cancelled', case=False, na=False, regex=True)
         else:
             processed['Is_Completed'] = True
             processed['Is_Cancelled'] = False
         
         # Store information
-        restaurant_columns = ['餐厅名称', 'Restaurant Name', 'Store Name']
-        restaurant_col = None
-        for col in restaurant_columns:
-            if col in df.columns:
-                restaurant_col = col
-                break
-                
-        if not restaurant_col and len(df.columns) > 0:
-            restaurant_col = df.columns[0]  # Often the first column
+        restaurant_col = '餐厅名称' if '餐厅名称' in df.columns else df.columns[0] if len(df.columns) > 0 else None
+        processed['Store_Name'] = df[restaurant_col] if restaurant_col and restaurant_col in df.columns else 'Unknown'
+        processed['Store_ID'] = df.get('餐厅号', 'Unknown')
         
-        if restaurant_col and restaurant_col in df.columns:
-            processed['Store_Name'] = df[restaurant_col].astype(str)
-        else:
-            processed['Store_Name'] = 'Unknown'
-        
-        processed['Store_ID'] = safe_numeric_convert(df.get('餐厅号', 'Unknown'))
-        
-        # Order ID
-        order_id_columns = ['订单号', 'Order ID', 'Order Number']
-        order_id_col = None
-        for col in order_id_columns:
-            if col in df.columns:
-                order_id_col = col
-                break
-                
-        if order_id_col:
-            processed['Order_ID'] = df[order_id_col].astype(str)
+        # Order ID for unique customer tracking
+        if '订单号' in df.columns:
+            processed['Order_ID'] = df['订单号'].astype(str)
         else:
             processed['Order_ID'] = pd.Series(range(len(df))).astype(str) + '_uber'
         
         # Time processing
-        time_columns = ['订单接受时间', 'Accept Time', 'Order Time']
-        time_col = None
-        for col in time_columns:
-            if col in df.columns:
-                time_col = col
-                break
-        
-        if time_col:
+        if '订单接受时间' in df.columns:
             try:
-                time_series = pd.to_datetime(df[time_col], errors='coerce')
+                time_series = pd.to_datetime(df['订单接受时间'], errors='coerce')
                 processed['Hour'] = time_series.dt.hour.fillna(12)
             except:
                 processed['Hour'] = 12
@@ -493,152 +192,63 @@ def process_uber_data(df):
         processed['Month'] = processed['Date'].dt.to_period('M')
         
         # Clean data
-        initial_length = len(processed)
         processed = processed[processed['Date'].notna()]
-        after_date_filter = len(processed)
-        processed = processed[processed['Revenue'].notna()]
-        after_revenue_filter = len(processed)
-        processed = processed[processed['Revenue'] != 0]
-        final_length = len(processed)
-        
-        if initial_length != final_length:
-            st.info(f"Uber: Removed {initial_length - after_date_filter} rows with invalid dates")
-            st.info(f"Uber: Removed {after_date_filter - after_revenue_filter} rows with invalid revenue")
-            st.info(f"Uber: Removed {after_revenue_filter - final_length} rows with zero revenue")
-            st.info(f"Uber: Final dataset contains {final_length} valid records")
         
         return processed
-        
     except Exception as e:
-        st.error(f"Uber processing error: {str(e)}")
-        import traceback
-        st.error(f"Detailed error: {traceback.format_exc()}")
+        st.error(f"Uber processing error: {e}")
         return pd.DataFrame()
 
 @st.cache_data
 def process_grubhub_data(df):
-    """Process Grubhub data with enhanced error handling"""
+    """Process Grubhub data with improved error handling"""
     try:
         processed = pd.DataFrame()
         
-        if df is None or len(df) == 0:
-            st.warning("Grubhub data is empty")
-            return pd.DataFrame()
-        
-        st.info(f"Grubhub: Starting to process {len(df)} rows")
-        
-        # Core fields mapping
-        date_columns = ['transaction_date', 'Date', 'Order Date', 'order_date']
-        date_col = None
-        for col in date_columns:
-            if col in df.columns:
-                date_col = col
-                break
-        
-        if date_col:
-            st.info(f"Grubhub: Found date column '{date_col}'")
-            
-            # Check if ALL dates are corrupted (########)
-            date_str_series = df[date_col].astype(str)
-            corrupted_dates = date_str_series.str.contains('########', na=False).sum()
-            
-            if corrupted_dates > len(df) * 0.9:  # If more than 90% are corrupted
-                st.error(f"🚨 **Grubhub Date Issue**: All {corrupted_dates} dates are showing as '########'")
-                st.error("**This typically happens when:**")
-                st.error("• The CSV was exported from Excel with date formatting issues")
-                st.error("• Excel couldn't display dates in the column width")
-                st.markdown("**💡 Solution**: Please re-export your Grubhub data:")
-                st.markdown("1. Open the original Grubhub report in Excel")
-                st.markdown("2. Widen the date columns to see the actual dates")
-                st.markdown("3. Save/Export as CSV again")
-                st.markdown("4. Re-upload here")
-                st.markdown("---")
-                st.warning("⚠️ Continuing with revenue data only (no date analysis available)")
-                
-                # Set a default date so revenue analysis can still work
-                processed['Date'] = pd.Timestamp('2025-01-01')  # Placeholder date
-            else:
-                # First check if dates are Excel serial numbers stored as floats
-                if df[date_col].dtype in ['float64', 'int64']:
-                    try:
-                        # Try to convert Excel serial dates (days since 1900-01-01)
-                        processed['Date'] = pd.to_datetime('1899-12-30') + pd.to_timedelta(df[date_col], 'D')
-                        st.info(f"Grubhub: Converted Excel serial dates successfully")
-                    except:
-                        # If that fails, try parsing as strings
-                        processed['Date'] = parse_date_flexible(df[date_col])
-                else:
-                    processed['Date'] = parse_date_flexible(df[date_col])
-                
-                # Check how many valid dates we got
-                valid_dates = processed['Date'].notna().sum()
-                st.info(f"Grubhub: Parsed {valid_dates} valid dates out of {len(df)} rows")
-        else:
-            st.warning(f"Grubhub: Could not find date column. Available columns: {', '.join(df.columns.tolist()[:10])}")
-            processed['Date'] = pd.NaT
-            
+        # Core fields
+        processed['Date'] = pd.to_datetime(df['transaction_date'], errors='coerce')
         processed['Platform'] = 'Grubhub'
+        processed['Revenue'] = pd.to_numeric(df['merchant_net_total'], errors='coerce')
         
-        # Revenue mapping
-        revenue_columns = ['merchant_net_total', 'Net Total', 'Revenue', 'net_total']
-        revenue_col = None
-        for col in revenue_columns:
-            if col in df.columns:
-                revenue_col = col
-                break
+        # Optional fields with safe access
+        processed['Subtotal'] = pd.to_numeric(df.get('subtotal', 0), errors='coerce').fillna(0)
+        processed['Tax'] = pd.to_numeric(df.get('subtotal_sales_tax', 0), errors='coerce').fillna(0)
+        processed['Tips'] = pd.to_numeric(df.get('tip', 0), errors='coerce').fillna(0)
+        processed['Commission'] = pd.to_numeric(df.get('commission', 0), errors='coerce').fillna(0)
+        processed['Marketing_Fee'] = pd.to_numeric(df.get('merchant_funded_promotion', 0), errors='coerce').fillna(0)
         
-        if revenue_col:
-            st.info(f"Grubhub: Found revenue column '{revenue_col}'")
-            processed['Revenue'] = safe_numeric_convert(df[revenue_col])
-            valid_revenue = (processed['Revenue'] != 0).sum()
-            st.info(f"Grubhub: Found {valid_revenue} non-zero revenue entries")
+        # Process order status
+        if 'transaction_type' in df.columns:
+            processed['Is_Completed'] = df['transaction_type'].astype(str).str.contains('Prepaid|Order', case=False, na=False, regex=True)
         else:
-            st.warning(f"Grubhub: Could not find revenue column. Available columns: {', '.join(df.columns.tolist()[:10])}")
-            processed['Revenue'] = 0
-        
-        # Optional fields
-        processed['Subtotal'] = safe_numeric_convert(df.get('subtotal', 0))
-        processed['Tax'] = safe_numeric_convert(df.get('subtotal_sales_tax', 0))
-        processed['Tips'] = safe_numeric_convert(df.get('tip', 0))
-        processed['Commission'] = safe_numeric_convert(df.get('commission', 0))
-        processed['Marketing_Fee'] = safe_numeric_convert(df.get('merchant_funded_promotion', 0))
-        
-        # Order status - Grubhub doesn't typically have explicit status in the data
-        # Assume all records are completed orders since they're in merchant reports
-        processed['Is_Completed'] = True
+            processed['Is_Completed'] = True
         processed['Is_Cancelled'] = False
         
         # Store information
-        processed['Store_Name'] = df.get('store_name', 'Unknown').astype(str)
-        processed['Store_ID'] = df.get('store_number', 'Unknown').astype(str)
+        processed['Store_Name'] = df.get('store_name', 'Unknown')
+        processed['Store_ID'] = df.get('store_number', 'Unknown')
         
-        # Order ID
-        order_id_columns = ['order_number', 'Order ID', 'transaction_id']
-        order_id_col = None
-        for col in order_id_columns:
-            if col in df.columns:
-                order_id_col = col
-                break
-                
-        if order_id_col:
-            processed['Order_ID'] = df[order_id_col].astype(str)
+        # Order ID for unique customer tracking
+        if 'order_number' in df.columns:
+            processed['Order_ID'] = df['order_number'].astype(str)
         else:
-            processed['Order_ID'] = pd.Series(range(len(df))).astype(str) + '_grubhub'
+            processed['Order_ID'] = pd.Series(range(len(df))).astype(str) + '_gh'
         
-        # Time processing from transaction_time_local
-        time_columns = ['transaction_time_local', 'Time', 'Order Time']
-        time_col = None
-        for col in time_columns:
-            if col in df.columns:
-                time_col = col
-                break
-        
-        if time_col:
+        # Time processing
+        if 'transaction_time_local' in df.columns:
             try:
-                # Handle "########" in time columns
-                time_data = df[time_col].astype(str).replace('########', '12:00')
-                time_series = pd.to_datetime(time_data, errors='coerce')
-                processed['Hour'] = time_series.dt.hour.fillna(12)
+                # Handle time format variations
+                time_str = df['transaction_time_local'].astype(str)
+                # Try parsing different time formats
+                for fmt in ['%H:%M:%S', '%I:%M:%S %p', '%H:%M']:
+                    try:
+                        time_series = pd.to_datetime(time_str, format=fmt, errors='coerce')
+                        processed['Hour'] = time_series.dt.hour.fillna(12)
+                        break
+                    except:
+                        continue
+                else:
+                    processed['Hour'] = 12
             except:
                 processed['Hour'] = 12
         else:
@@ -648,317 +258,351 @@ def process_grubhub_data(df):
         processed['Month'] = processed['Date'].dt.to_period('M')
         
         # Clean data
-        initial_length = len(processed)
-        
-        # Check if we're using placeholder dates (all same date means corrupted)
-        unique_dates = processed['Date'].nunique()
-        using_placeholder = (unique_dates == 1 and processed['Date'].iloc[0] == pd.Timestamp('2025-01-01'))
-        
-        if not using_placeholder:
-            processed = processed[processed['Date'].notna()]
-            after_date_filter = len(processed)
-        else:
-            after_date_filter = initial_length
-            st.warning("Grubhub: Skipping date validation due to corrupted dates")
-        
-        processed = processed[processed['Revenue'].notna()]
-        after_revenue_filter = len(processed)
-        processed = processed[processed['Revenue'] != 0]
-        final_length = len(processed)
-        
-        if not using_placeholder and initial_length != final_length:
-            st.info(f"Grubhub: Removed {initial_length - after_date_filter} rows with invalid dates")
-            st.info(f"Grubhub: Removed {after_date_filter - after_revenue_filter} rows with invalid revenue")
-            st.info(f"Grubhub: Removed {after_revenue_filter - final_length} rows with zero revenue")
-        elif initial_length != final_length:
-            st.info(f"Grubhub: Removed {after_revenue_filter - final_length} rows with zero revenue")
-        
-        st.info(f"Grubhub: Final dataset contains {final_length} valid records")
+        processed = processed[processed['Date'].notna()]
         
         return processed
-        
     except Exception as e:
-        st.error(f"Grubhub processing error: {str(e)}")
-        import traceback
-        st.error(f"Detailed error: {traceback.format_exc()}")
+        st.error(f"Grubhub processing error: {e}")
         return pd.DataFrame()
 
-def create_enhanced_visualizations():
-    """Create enhanced visualizations with better styling"""
-    return {
-        'template': 'plotly_white',
-        'font': {'family': 'Source Sans Pro, sans-serif', 'size': 12},
-        'colorway': ['#8B4513', '#D2691E', '#CD853F', '#F4A460', '#DEB887']
-    }
+def calculate_retention_metrics(df):
+    """Calculate customer retention and cohort analysis"""
+    if df.empty:
+        return pd.DataFrame(), pd.DataFrame()
+    
+    try:
+        # Create customer purchase history
+        customer_orders = df.groupby('Order_ID').agg({
+            'Date': 'first',
+            'Revenue': 'sum',
+            'Platform': 'first'
+        }).reset_index()
+        
+        # Create cohorts based on first purchase month
+        customer_orders['Cohort'] = customer_orders['Date'].dt.to_period('M')
+        
+        # Calculate cohort retention (simplified for demo)
+        cohort_data = customer_orders.groupby(['Cohort', 'Platform']).size().reset_index(name='Customers')
+        
+        # Calculate monthly active customers
+        monthly_active = df.groupby([df['Date'].dt.to_period('M'), 'Platform'])['Order_ID'].nunique().reset_index()
+        monthly_active.columns = ['Month', 'Platform', 'Active_Customers']
+        
+        return cohort_data, monthly_active
+    except Exception as e:
+        st.warning(f"Retention metrics calculation error: {e}")
+        return pd.DataFrame(), pd.DataFrame()
+
+def calculate_rfm_scores(df):
+    """Calculate RFM (Recency, Frequency, Monetary) scores"""
+    if df.empty:
+        return pd.DataFrame()
+    
+    try:
+        current_date = df['Date'].max()
+        
+        # Group by simulated customer (using Order_ID as proxy)
+        rfm = df.groupby('Order_ID').agg({
+            'Date': lambda x: (current_date - x.max()).days,  # Recency
+            'Revenue': ['count', 'sum']  # Frequency and Monetary
+        }).reset_index()
+        
+        rfm.columns = ['Customer_ID', 'Recency', 'Frequency', 'Monetary']
+        
+        # Create RFM scores
+        if len(rfm) >= 4:
+            rfm['R_Score'] = pd.qcut(rfm['Recency'], q=4, labels=['4', '3', '2', '1'], duplicates='drop')
+            rfm['F_Score'] = pd.qcut(rfm['Frequency'].rank(method='first'), q=4, labels=['1', '2', '3', '4'], duplicates='drop')
+            rfm['M_Score'] = pd.qcut(rfm['Monetary'], q=4, labels=['1', '2', '3', '4'], duplicates='drop')
+            
+            # Combine scores
+            rfm['RFM_Score'] = rfm['R_Score'].astype(str) + rfm['F_Score'].astype(str) + rfm['M_Score'].astype(str)
+            
+            # Segment customers
+            def segment_customers(row):
+                if row['RFM_Score'] in ['444', '443', '434', '344']:
+                    return 'Champions'
+                elif row['RFM_Score'] in ['442', '441', '432', '431', '342', '341']:
+                    return 'Loyal Customers'
+                elif row['RFM_Score'] in ['433', '423', '424', '333', '334']:
+                    return 'Potential Loyalists'
+                elif row['RFM_Score'] in ['411', '412', '421', '311']:
+                    return 'New Customers'
+                elif row['RFM_Score'] in ['331', '321', '312', '322']:
+                    return 'Promising'
+                elif row['RFM_Score'] in ['332', '323', '324', '314']:
+                    return 'Need Attention'
+                elif row['RFM_Score'] in ['144', '143', '134', '133', '234', '233']:
+                    return 'About to Sleep'
+                elif row['RFM_Score'] in ['244', '243', '242', '241']:
+                    return 'At Risk'
+                elif row['RFM_Score'] in ['124', '123', '122', '121', '224', '223']:
+                    return 'Cannot Lose Them'
+                elif row['RFM_Score'] in ['114', '113', '112', '111']:
+                    return 'Hibernating'
+                else:
+                    return 'Other'
+            
+            rfm['Segment'] = rfm.apply(segment_customers, axis=1)
+        else:
+            rfm['Segment'] = 'Insufficient Data'
+        
+        return rfm
+    except Exception as e:
+        st.warning(f"RFM calculation error: {e}")
+        return pd.DataFrame()
 
 def main():
-    # Header with coffee-themed styling
+    # Header
     st.markdown("""
         <div class="luckin-header">
-            <h1 style="font-size: 3rem; margin-bottom: 0.5rem; font-weight: 700;">☕ Luckin Coffee</h1>
-            <h3 style="margin: 0; font-weight: 400; opacity: 0.9;">Advanced Marketing Analytics Dashboard</h3>
-            <p style="margin-top: 1rem; opacity: 0.8; font-size: 1.1rem;">Comprehensive Multi-Platform Performance Analysis</p>
+            <h1>☕ Luckin Coffee - Advanced Marketing Analytics Dashboard</h1>
+            <p style='font-size: 18px; opacity: 0.9;'>Comprehensive Multi-Platform Performance Analysis</p>
         </div>
     """, unsafe_allow_html=True)
-
-    # Sidebar for file uploads with enhanced styling
-    st.sidebar.markdown("### 📁 Data Upload Center")
-    st.sidebar.markdown("Upload your platform data files below:")
-
-    # File uploaders with better feedback
-    doordash_file = st.sidebar.file_uploader(
-        "DoorDash CSV", 
-        type=['csv'], 
-        key="doordash",
-        help="Upload your DoorDash merchant report CSV file"
-    )
     
-    uber_file = st.sidebar.file_uploader(
-        "Uber CSV", 
-        type=['csv'], 
-        key="uber",
-        help="Upload your Uber Eats merchant report CSV file"
-    )
+    # Sidebar for data upload
+    with st.sidebar:
+        st.markdown("## 📊 Data Upload Center")
+        
+        # File uploaders
+        doordash_file = st.file_uploader("DoorDash CSV", type=['csv'], key='doordash_upload')
+        uber_file = st.file_uploader("Uber CSV", type=['csv'], key='uber_upload')
+        grubhub_file = st.file_uploader("Grubhub CSV", type=['csv'], key='grubhub_upload')
+        
+        # Date filter
+        st.markdown("### 📅 Date Range Filter")
+        use_date_filter = st.checkbox("Apply Date Filter", value=False)
+        
+        if use_date_filter:
+            date_range = st.date_input(
+                "Select Date Range",
+                value=(datetime.now() - timedelta(days=30), datetime.now()),
+                key='date_range_filter'
+            )
     
-    grubhub_file = st.sidebar.file_uploader(
-        "Grubhub CSV", 
-        type=['csv'], 
-        key="grubhub",
-        help="Upload your Grubhub merchant report CSV file"
-    )
-
-    # Data processing with enhanced error handling
-    df_list = []
-    processing_status = {"DoorDash": "❌ No data", "Uber": "❌ No data", "Grubhub": "❌ No data"}
-
-    # Process DoorDash
-    if doordash_file is not None:
+    # Process uploaded files
+    all_data = []
+    
+    # Try to load from uploads directory if no files uploaded
+    if not doordash_file:
         try:
-            with st.spinner("Processing DoorDash data..."):
-                doordash_df = pd.read_csv(doordash_file, encoding='utf-8-sig')
-                processed_dd = process_doordash_data(doordash_df)
-                if not processed_dd.empty:
-                    df_list.append(processed_dd)
-                    processing_status["DoorDash"] = f"✅ {len(processed_dd)} orders"
-                    st.sidebar.markdown(f'<div class="success-alert">✅ DoorDash: {len(processed_dd)} orders loaded</div>', unsafe_allow_html=True)
-                else:
-                    processing_status["DoorDash"] = "⚠️ No valid data"
-                    st.sidebar.markdown('<div class="warning-alert">⚠️ DoorDash: No valid data found</div>', unsafe_allow_html=True)
+            doordash_df = pd.read_csv('/mnt/user-data/uploads/doordash.csv')
+            processed = process_doordash_data(doordash_df)
+            if not processed.empty:
+                all_data.append(processed)
         except Exception as e:
-            processing_status["DoorDash"] = f"❌ Error: {str(e)[:50]}..."
-            st.sidebar.markdown(f'<div class="error-alert">❌ DoorDash Error: {str(e)}</div>', unsafe_allow_html=True)
-
-    # Process Uber
-    if uber_file is not None:
+            pass
+    else:
+        doordash_df = pd.read_csv(doordash_file)
+        processed = process_doordash_data(doordash_df)
+        if not processed.empty:
+            all_data.append(processed)
+    
+    if not uber_file:
         try:
-            with st.spinner("Processing Uber data..."):
-                uber_df = pd.read_csv(uber_file, encoding='utf-8-sig')
-                processed_uber = process_uber_data(uber_df)
-                if not processed_uber.empty:
-                    df_list.append(processed_uber)
-                    processing_status["Uber"] = f"✅ {len(processed_uber)} orders"
-                    st.sidebar.markdown(f'<div class="success-alert">✅ Uber: {len(processed_uber)} orders loaded</div>', unsafe_allow_html=True)
-                else:
-                    processing_status["Uber"] = "⚠️ No valid data"
-                    st.sidebar.markdown('<div class="warning-alert">⚠️ Uber: No valid data found</div>', unsafe_allow_html=True)
+            uber_df = pd.read_csv('/mnt/user-data/uploads/Uber.csv')
+            processed = process_uber_data(uber_df)
+            if not processed.empty:
+                all_data.append(processed)
         except Exception as e:
-            processing_status["Uber"] = f"❌ Error: {str(e)[:50]}..."
-            st.sidebar.markdown(f'<div class="error-alert">❌ Uber Error: {str(e)}</div>', unsafe_allow_html=True)
-
-    # Process Grubhub
-    if grubhub_file is not None:
+            pass
+    else:
+        uber_df = pd.read_csv(uber_file)
+        processed = process_uber_data(uber_df)
+        if not processed.empty:
+            all_data.append(processed)
+    
+    if not grubhub_file:
         try:
-            with st.spinner("Processing Grubhub data..."):
-                grubhub_df = pd.read_csv(grubhub_file, encoding='utf-8-sig')
-                processed_grubhub = process_grubhub_data(grubhub_df)
-                if not processed_grubhub.empty:
-                    df_list.append(processed_grubhub)
-                    processing_status["Grubhub"] = f"✅ {len(processed_grubhub)} orders"
-                    st.sidebar.markdown(f'<div class="success-alert">✅ Grubhub: {len(processed_grubhub)} orders loaded</div>', unsafe_allow_html=True)
-                else:
-                    processing_status["Grubhub"] = "⚠️ No valid data"
-                    st.sidebar.markdown('<div class="warning-alert">⚠️ Grubhub: No valid data found</div>', unsafe_allow_html=True)
+            grubhub_df = pd.read_csv('/mnt/user-data/uploads/grubhub.csv')
+            processed = process_grubhub_data(grubhub_df)
+            if not processed.empty:
+                all_data.append(processed)
         except Exception as e:
-            processing_status["Grubhub"] = f"❌ Error: {str(e)[:50]}..."
-            st.sidebar.markdown(f'<div class="error-alert">❌ Grubhub Error: {str(e)}</div>', unsafe_allow_html=True)
-
-    # Display processing status
-    st.sidebar.markdown("### 📊 Processing Status")
-    for platform, status in processing_status.items():
-        st.sidebar.markdown(f"**{platform}**: {status}")
-
-    # Check if we have any data
-    if not df_list:
-        st.markdown("""
-            <div style="text-align: center; padding: 4rem 2rem; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 15px; margin: 2rem 0;">
-                <h2 style="color: #6c757d; margin-bottom: 1rem;">☕ Welcome to Luckin Coffee Analytics</h2>
-                <p style="color: #6c757d; font-size: 1.2rem;">Upload your platform data files to begin analyzing your coffee shop's performance</p>
-                <p style="color: #6c757d;">Supported platforms: DoorDash, Uber Eats, Grubhub</p>
-            </div>
-        """, unsafe_allow_html=True)
-        return
-
+            pass
+    else:
+        grubhub_df = pd.read_csv(grubhub_file)
+        processed = process_grubhub_data(grubhub_df)
+        if not processed.empty:
+            all_data.append(processed)
+    
     # Combine all data
-    df = pd.concat(df_list, ignore_index=True)
-    
-    # Filter for completed orders only
-    completed_df = df[df['Is_Completed'] == True].copy()
-    
-    if completed_df.empty:
-        st.error("No completed orders found in the uploaded data!")
+    if all_data:
+        df = pd.concat(all_data, ignore_index=True)
+        
+        # Apply date filter if selected
+        if use_date_filter and len(date_range) == 2:
+            df = df[(df['Date'].dt.date >= date_range[0]) & (df['Date'].dt.date <= date_range[1])]
+    else:
+        st.warning("📁 Please upload at least one CSV file to begin analysis")
+        st.info("💡 Tip: Upload DoorDash, Uber, and Grubhub CSV files for comprehensive insights")
         return
-
-    # Calculate metrics
+    
+    # Filter for completed orders for most analyses
+    if 'Is_Completed' in df.columns:
+        completed_df = df[df['Is_Completed'] == True].copy()
+    else:
+        completed_df = df.copy()  # Use all data if completion status not available
+    
+    # Sidebar statistics
+    with st.sidebar:
+        st.markdown("---")
+        st.markdown("### 📊 Dataset Overview")
+        
+        platforms = df['Platform'].unique()
+        st.markdown(f"**Platforms:** {', '.join(platforms)}")
+        st.markdown(f"**Total Records:** {len(df):,}")
+        st.markdown(f"**Completed Orders:** {len(completed_df):,}")
+        
+        if not df.empty:
+            st.markdown(f"**Date Range:** {df['Date'].min().strftime('%Y-%m-%d')} to {df['Date'].max().strftime('%Y-%m-%d')}")
+        
+        # Store filter
+        st.markdown("### 🏪 Store Filter")
+        stores = df['Store_Name'].unique()
+        selected_stores = st.multiselect("Select Stores", stores, default=list(stores), key='store_filter')
+        
+        if selected_stores:
+            df = df[df['Store_Name'].isin(selected_stores)]
+            completed_df = completed_df[completed_df['Store_Name'].isin(selected_stores)]
+    
+    # Calculate key metrics
+    total_revenue = completed_df['Revenue'].sum() if not completed_df.empty else 0
     total_orders = len(completed_df)
-    total_revenue = completed_df['Revenue'].sum()
-    avg_order_value = completed_df['Revenue'].mean()
+    avg_order_value = completed_df['Revenue'].mean() if total_orders > 0 else 0
     completion_rate = (len(completed_df) / len(df) * 100) if len(df) > 0 else 0
-
-    # Platform breakdown
-    platform_summary = completed_df.groupby('Platform').agg({
-        'Revenue': ['sum', 'mean', 'count'],
-        'Order_ID': 'nunique'
-    }).round(2)
-
-    platform_summary.columns = ['Total_Revenue', 'Avg_Order_Value', 'Total_Orders', 'Unique_Orders']
-    platform_summary = platform_summary.reset_index()
-
-    # Calculate trends
-    monthly_data = completed_df.groupby(['Month', 'Platform'])['Revenue'].agg(['sum', 'count']).reset_index()
-    current_month_revenue = monthly_data[monthly_data['Month'] == monthly_data['Month'].max()]['sum'].sum()
-    previous_months = monthly_data[monthly_data['Month'] < monthly_data['Month'].max()]
-    if not previous_months.empty:
-        previous_month_revenue = previous_months.groupby('Month')['sum'].sum().iloc[-1]
-        revenue_growth = ((current_month_revenue - previous_month_revenue) / previous_month_revenue * 100) if previous_month_revenue > 0 else 0
-    else:
-        revenue_growth = 0
-
-    current_month_orders = monthly_data[monthly_data['Month'] == monthly_data['Month'].max()]['count'].sum()
-    if not previous_months.empty:
-        previous_month_orders = previous_months.groupby('Month')['count'].sum().iloc[-1]
-        order_growth = ((current_month_orders - previous_month_orders) / previous_month_orders * 100) if previous_month_orders > 0 else 0
-    else:
-        order_growth = 0
-
-    # Display overview metrics
-    st.markdown("## 📊 Executive Dashboard")
     
-    col1, col2, col3, col4, col5 = st.columns(5)
+    # Calculate growth metrics
+    revenue_growth = 0
+    order_growth = 0
     
-    with col1:
-        st.markdown(f"""
-            <div class="metric-card">
-                <h3 style="color: #8B4513; margin: 0;">Total Orders</h3>
-                <h2 style="color: #D2691E; margin: 0.5rem 0;">{total_orders:,}</h2>
-                <p style="color: #6c757d; margin: 0;">All Platforms</p>
-            </div>
-        """, unsafe_allow_html=True)
+    if not completed_df.empty and 'Month' in completed_df.columns:
+        completed_df['MonthYear'] = completed_df['Date'].dt.to_period('M')
+        monthly_revenue = completed_df.groupby('MonthYear')['Revenue'].sum()
+        if len(monthly_revenue) > 1:
+            revenue_growth = ((monthly_revenue.iloc[-1] - monthly_revenue.iloc[-2]) / monthly_revenue.iloc[-2] * 100)
+        
+        monthly_orders = completed_df.groupby('MonthYear').size()
+        if len(monthly_orders) > 1:
+            order_growth = ((monthly_orders.iloc[-1] - monthly_orders.iloc[-2]) / monthly_orders.iloc[-2] * 100)
     
-    with col2:
-        st.markdown(f"""
-            <div class="metric-card">
-                <h3 style="color: #8B4513; margin: 0;">Total Revenue</h3>
-                <h2 style="color: #D2691E; margin: 0.5rem 0;">${total_revenue:,.2f}</h2>
-                <p style="color: #6c757d; margin: 0;">Monthly Growth: {revenue_growth:+.1f}%</p>
-            </div>
-        """, unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown(f"""
-            <div class="metric-card">
-                <h3 style="color: #8B4513; margin: 0;">Avg Order Value</h3>
-                <h2 style="color: #D2691E; margin: 0.5rem 0;">${avg_order_value:.2f}</h2>
-                <p style="color: #6c757d; margin: 0;">Per Transaction</p>
-            </div>
-        """, unsafe_allow_html=True)
-    
-    with col4:
-        st.markdown(f"""
-            <div class="metric-card">
-                <h3 style="color: #8B4513; margin: 0;">Completion Rate</h3>
-                <h2 style="color: #D2691E; margin: 0.5rem 0;">{completion_rate:.1f}%</h2>
-                <p style="color: #6c757d; margin: 0;">Order Success</p>
-            </div>
-        """, unsafe_allow_html=True)
-    
-    with col5:
-        st.markdown(f"""
-            <div class="metric-card">
-                <h3 style="color: #8B4513; margin: 0;">Active Platforms</h3>
-                <h2 style="color: #D2691E; margin: 0.5rem 0;">{len(platform_summary)}</h2>
-                <p style="color: #6c757d; margin: 0;">Order Growth: {order_growth:+.1f}%</p>
-            </div>
-        """, unsafe_allow_html=True)
-
-    # Create tabs for different analyses
+    # Create tabs
     tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
-        "🏠 Overview", "💰 Revenue Analytics", "🏆 Performance", 
-        "🕐 Operations", "📈 Growth & Trends", "👥 Customer Attribution", 
+        "📊 Overview", "💰 Revenue Analytics", "🏆 Performance", 
+        "⚡ Operations", "📈 Growth & Trends", "🎯 Customer Attribution", 
         "🔄 Retention & Churn", "📱 Platform Comparison"
     ])
-
+    
+    # TAB 1: OVERVIEW
     with tab1:
-        st.markdown("### 📱 Platform Overview")
+        st.markdown("### 📊 Executive Dashboard")
         
-        # Platform summary table
+        # Key metrics
+        col1, col2, col3, col4, col5 = st.columns(5)
+        
+        with col1:
+            st.metric(
+                "Total Orders", 
+                f"{total_orders:,}",
+                delta=f"{order_growth:.1f}% MoM" if order_growth != 0 else None
+            )
+        
+        with col2:
+            st.metric(
+                "Total Revenue",
+                f"${total_revenue:,.2f}",
+                delta=f"{revenue_growth:.1f}% MoM" if revenue_growth != 0 else None
+            )
+        
+        with col3:
+            st.metric(
+                "Average Order Value",
+                f"${avg_order_value:.2f}"
+            )
+        
+        with col4:
+            st.metric(
+                "Completion Rate",
+                f"{completion_rate:.1f}%"
+            )
+        
+        with col5:
+            if 'Is_Cancelled' in df.columns:
+                cancelled_orders = len(df[df['Is_Cancelled'] == True])
+                cancellation_rate = (cancelled_orders / len(df) * 100) if len(df) > 0 else 0
+            else:
+                cancellation_rate = 0
+            st.metric(
+                "Cancellation Rate",
+                f"{cancellation_rate:.1f}%"
+            )
+        
+        st.markdown("---")
+        
+        # Platform distribution
         col1, col2 = st.columns(2)
         
         with col1:
-            # Revenue by platform pie chart
-            fig_revenue_pie = px.pie(
-                platform_summary, 
-                values='Total_Revenue', 
-                names='Platform',
-                title="Revenue Distribution by Platform",
-                color='Platform',
-                color_discrete_map=PLATFORM_COLORS,
-                hole=0.4
+            platform_orders = completed_df['Platform'].value_counts()
+            fig_pie = px.pie(
+                values=platform_orders.values,
+                names=platform_orders.index,
+                title="Order Distribution by Platform",
+                color_discrete_map=PLATFORM_COLORS
             )
-            fig_revenue_pie.update_layout(**create_enhanced_visualizations())
-            st.plotly_chart(fig_revenue_pie, use_container_width=True, key='overview_revenue_pie')
+            fig_pie.update_traces(textposition='inside', textinfo='percent+label')
+            st.plotly_chart(fig_pie, width='stretch', key='overview_pie_orders')
         
         with col2:
-            # Orders by platform pie chart
-            fig_orders_pie = px.pie(
-                platform_summary, 
-                values='Total_Orders', 
-                names='Platform',
-                title="Order Distribution by Platform",
-                color='Platform',
+            platform_revenue = completed_df.groupby('Platform')['Revenue'].sum().sort_values(ascending=False)
+            fig_bar = px.bar(
+                x=platform_revenue.index,
+                y=platform_revenue.values,
+                title="Revenue by Platform",
+                color=platform_revenue.index,
                 color_discrete_map=PLATFORM_COLORS,
-                hole=0.4
+                text=platform_revenue.values
             )
-            fig_orders_pie.update_layout(**create_enhanced_visualizations())
-            st.plotly_chart(fig_orders_pie, use_container_width=True, key='overview_orders_pie')
+            fig_bar.update_traces(texttemplate='$%{text:,.0f}', textposition='outside')
+            fig_bar.update_layout(showlegend=False, xaxis_title="Platform", yaxis_title="Revenue ($)")
+            st.plotly_chart(fig_bar, width='stretch', key='overview_bar_revenue')
         
-        # Platform comparison bar chart
-        fig_comparison = px.bar(
-            platform_summary,
-            x='Platform',
-            y='Total_Revenue',
-            color='Platform',
-            title='Revenue Comparison Across Platforms',
-            color_discrete_map=PLATFORM_COLORS,
-            text='Total_Revenue'
+        # Platform performance summary
+        st.markdown("### 📋 Platform Performance Summary")
+        
+        summary_df = completed_df.groupby('Platform').agg({
+            'Revenue': ['count', 'sum', 'mean'],
+            'Date': ['min', 'max']
+        }).round(2)
+        summary_df.columns = ['Total Orders', 'Total Revenue ($)', 'AOV ($)', 'First Order', 'Last Order']
+        summary_df = summary_df.reset_index()
+        
+        st.dataframe(summary_df, width='stretch', hide_index=True)
+        
+        # Store performance
+        st.markdown("### 🏪 Top Performing Stores")
+        
+        store_performance = completed_df.groupby('Store_Name').agg({
+            'Revenue': ['sum', 'count', 'mean']
+        }).round(2)
+        store_performance.columns = ['Total Revenue', 'Total Orders', 'AOV']
+        store_performance = store_performance.sort_values('Total Revenue', ascending=False).head(10)
+        
+        fig_store = px.bar(
+            store_performance,
+            x=store_performance.index,
+            y='Total Revenue',
+            title="Top 10 Stores by Revenue",
+            text='Total Revenue'
         )
-        fig_comparison.update_traces(texttemplate='$%{text:,.0f}', textposition='outside')
-        fig_comparison.update_layout(**create_enhanced_visualizations())
-        fig_comparison.update_layout(showlegend=False, yaxis_title="Total Revenue ($)")
-        st.plotly_chart(fig_comparison, use_container_width=True, key='overview_platform_comparison')
-        
-        # Summary table
-        st.markdown("### 📊 Platform Performance Summary")
-        
-        # Format the summary for display
-        display_summary = platform_summary.copy()
-        display_summary['Total_Revenue'] = display_summary['Total_Revenue'].apply(lambda x: f"${x:,.2f}")
-        display_summary['Avg_Order_Value'] = display_summary['Avg_Order_Value'].apply(lambda x: f"${x:.2f}")
-        display_summary.columns = ['Platform', 'Total Revenue', 'Average Order Value', 'Total Orders', 'Unique Orders']
-        
-        st.dataframe(display_summary, use_container_width=True, hide_index=True)
-
+        fig_store.update_traces(texttemplate='$%{text:,.0f}', textposition='outside')
+        fig_store.update_layout(xaxis_title="Store", yaxis_title="Revenue ($)")
+        st.plotly_chart(fig_store, width='stretch', key='overview_store_performance')
+    
+    # TAB 2: REVENUE ANALYTICS
     with tab2:
-        st.markdown("### 💰 Revenue Analytics")
+        st.markdown("### 💰 Revenue Deep Dive")
         
         # Daily revenue trend
         daily_revenue = completed_df.groupby(['Date', 'Platform'])['Revenue'].sum().reset_index()
@@ -968,292 +612,541 @@ def main():
             x='Date',
             y='Revenue',
             color='Platform',
-            title='Daily Revenue Trends by Platform',
-            color_discrete_map=PLATFORM_COLORS,
-            markers=True
+            title="Daily Revenue Trend by Platform",
+            color_discrete_map=PLATFORM_COLORS
         )
-        fig_daily.update_layout(**create_enhanced_visualizations())
-        fig_daily.update_layout(hovermode='x unified', yaxis_title="Daily Revenue ($)")
-        st.plotly_chart(fig_daily, use_container_width=True, key='revenue_daily_trends')
+        fig_daily.update_layout(hovermode='x unified')
+        st.plotly_chart(fig_daily, width='stretch', key='revenue_daily_trend')
         
-        # Revenue distribution
+        # Revenue distribution analysis
         col1, col2 = st.columns(2)
         
         with col1:
-            fig_hist = px.histogram(
-                completed_df,
-                x='Revenue',
-                color='Platform',
-                title='Revenue Distribution by Platform',
-                color_discrete_map=PLATFORM_COLORS,
-                nbins=50
-            )
-            fig_hist.update_layout(**create_enhanced_visualizations())
-            st.plotly_chart(fig_hist, use_container_width=True, key='revenue_distribution')
-        
-        with col2:
             fig_box = px.box(
                 completed_df,
                 x='Platform',
                 y='Revenue',
                 color='Platform',
-                title='Revenue Box Plot by Platform',
+                title="Revenue Distribution by Platform",
                 color_discrete_map=PLATFORM_COLORS
             )
-            fig_box.update_layout(**create_enhanced_visualizations())
             fig_box.update_layout(showlegend=False)
-            st.plotly_chart(fig_box, use_container_width=True, key='revenue_boxplot')
-
-    with tab3:
-        st.markdown("### 🏆 Performance Analytics")
+            st.plotly_chart(fig_box, width='stretch', key='revenue_distribution_box')
         
-        # Store performance
-        if 'Store_Name' in completed_df.columns:
-            store_performance = completed_df.groupby('Store_Name')['Revenue'].agg(['sum', 'count', 'mean']).round(2)
-            store_performance.columns = ['Total_Revenue', 'Order_Count', 'Avg_Order_Value']
-            store_performance = store_performance.sort_values('Total_Revenue', ascending=False)
-            
-            # Top performing stores
-            fig_stores = px.bar(
-                store_performance.head(10).reset_index(),
-                x='Store_Name',
-                y='Total_Revenue',
-                title='Top 10 Stores by Revenue',
-                color='Total_Revenue',
-                color_continuous_scale='Oranges'
-            )
-            fig_stores.update_layout(**create_enhanced_visualizations())
-            fig_stores.update_layout(xaxis_tickangle=-45, yaxis_title="Total Revenue ($)")
-            st.plotly_chart(fig_stores, use_container_width=True, key='performance_top_stores')
-            
-            # Store performance table
-            st.markdown("### 🏪 Store Performance Details")
-            display_stores = store_performance.copy()
-            display_stores['Total_Revenue'] = display_stores['Total_Revenue'].apply(lambda x: f"${x:,.2f}")
-            display_stores['Avg_Order_Value'] = display_stores['Avg_Order_Value'].apply(lambda x: f"${x:.2f}")
-            st.dataframe(display_stores, use_container_width=True)
-
-    with tab4:
-        st.markdown("### 🕐 Operational Analytics")
-        
-        # Hourly analysis
-        if 'Hour' in completed_df.columns and completed_df['Hour'].notna().any():
-            hourly_orders = completed_df.groupby(['Hour', 'Platform']).size().reset_index(name='Orders')
-            
-            fig_hourly = px.bar(
-                hourly_orders,
-                x='Hour',
-                y='Orders',
+        with col2:
+            fig_violin = px.violin(
+                completed_df,
+                x='Platform',
+                y='Revenue',
                 color='Platform',
-                title='Orders by Hour of Day',
+                title="Revenue Density by Platform",
+                color_discrete_map=PLATFORM_COLORS,
+                box=True
+            )
+            fig_violin.update_layout(showlegend=False)
+            st.plotly_chart(fig_violin, width='stretch', key='revenue_density_violin')
+        
+        # Weekly revenue pattern
+        st.markdown("### 📅 Weekly Revenue Patterns")
+        
+        if 'DayOfWeek' in completed_df.columns:
+            day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+            weekly_revenue = completed_df.groupby(['DayOfWeek', 'Platform'])['Revenue'].sum().reset_index()
+            weekly_revenue['DayOfWeek'] = pd.Categorical(weekly_revenue['DayOfWeek'], categories=day_order, ordered=True)
+            weekly_revenue = weekly_revenue.sort_values('DayOfWeek')
+            
+            fig_weekly = px.bar(
+                weekly_revenue,
+                x='DayOfWeek',
+                y='Revenue',
+                color='Platform',
+                title="Revenue by Day of Week",
                 color_discrete_map=PLATFORM_COLORS,
                 barmode='group'
             )
-            fig_hourly.update_layout(**create_enhanced_visualizations())
-            fig_hourly.update_layout(xaxis_title="Hour of Day", yaxis_title="Number of Orders")
-            st.plotly_chart(fig_hourly, use_container_width=True, key='operations_hourly')
+            st.plotly_chart(fig_weekly, width='stretch', key='revenue_weekly_pattern')
         
-        # Day of week analysis
-        if 'DayOfWeek' in completed_df.columns and completed_df['DayOfWeek'].notna().any():
-            dow_orders = completed_df.groupby(['DayOfWeek', 'Platform']).agg({
-                'Revenue': 'sum',
-                'Order_ID': 'count'
-            }).reset_index()
-            dow_orders.columns = ['DayOfWeek', 'Platform', 'Revenue', 'Orders']
+        # Monthly revenue comparison
+        st.markdown("### 📈 Monthly Revenue Comparison")
+        
+        if 'Month' in completed_df.columns:
+            monthly_revenue = completed_df.groupby(['Month', 'Platform'])['Revenue'].sum().reset_index()
+            monthly_revenue['Month'] = monthly_revenue['Month'].astype(str)
             
-            # Reorder days of week
-            day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-            dow_orders['DayOfWeek'] = pd.Categorical(dow_orders['DayOfWeek'], categories=day_order, ordered=True)
-            dow_orders = dow_orders.sort_values('DayOfWeek')
+            fig_monthly = px.bar(
+                monthly_revenue,
+                x='Month',
+                y='Revenue',
+                color='Platform',
+                title="Monthly Revenue by Platform",
+                color_discrete_map=PLATFORM_COLORS,
+                text='Revenue'
+            )
+            fig_monthly.update_traces(texttemplate='$%{text:,.0f}', textposition='outside')
+            st.plotly_chart(fig_monthly, width='stretch', key='revenue_monthly_comparison')
+    
+    # TAB 3: PERFORMANCE
+    with tab3:
+        st.markdown("### 🏆 Performance Analytics")
+        
+        # Performance metrics
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            if 'Is_Completed' in df.columns:
+                completion_rates = df.groupby('Platform')['Is_Completed'].mean() * 100
+            else:
+                completion_rates = pd.Series([100] * len(df['Platform'].unique()), index=df['Platform'].unique())
             
+            fig_completion = px.bar(
+                x=completion_rates.index,
+                y=completion_rates.values,
+                color=completion_rates.index,
+                title="Order Completion Rate by Platform",
+                color_discrete_map=PLATFORM_COLORS,
+                text=completion_rates.values
+            )
+            fig_completion.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
+            fig_completion.update_layout(showlegend=False, yaxis_title="Completion Rate (%)")
+            st.plotly_chart(fig_completion, width='stretch', key='performance_completion_rate')
+        
+        with col2:
+            aov_by_platform = completed_df.groupby('Platform')['Revenue'].mean()
+            fig_aov = px.bar(
+                x=aov_by_platform.index,
+                y=aov_by_platform.values,
+                color=aov_by_platform.index,
+                title="Average Order Value by Platform",
+                color_discrete_map=PLATFORM_COLORS,
+                text=aov_by_platform.values
+            )
+            fig_aov.update_traces(texttemplate='$%{text:.2f}', textposition='outside')
+            fig_aov.update_layout(showlegend=False, yaxis_title="AOV ($)")
+            st.plotly_chart(fig_aov, width='stretch', key='performance_aov')
+        
+        with col3:
+            orders_per_day = completed_df.groupby(['Date', 'Platform']).size().reset_index(name='Orders')
+            avg_daily_orders = orders_per_day.groupby('Platform')['Orders'].mean()
+            fig_daily_avg = px.bar(
+                x=avg_daily_orders.index,
+                y=avg_daily_orders.values,
+                color=avg_daily_orders.index,
+                title="Average Daily Orders by Platform",
+                color_discrete_map=PLATFORM_COLORS,
+                text=avg_daily_orders.values
+            )
+            fig_daily_avg.update_traces(texttemplate='%{text:.1f}', textposition='outside')
+            fig_daily_avg.update_layout(showlegend=False, yaxis_title="Avg Daily Orders")
+            st.plotly_chart(fig_daily_avg, width='stretch', key='performance_daily_avg')
+        
+        # Order volume trend
+        st.markdown("### 📈 Order Volume Trends")
+        
+        daily_orders = completed_df.groupby(['Date', 'Platform']).size().reset_index(name='Orders')
+        
+        fig_order_trend = px.line(
+            daily_orders,
+            x='Date',
+            y='Orders',
+            color='Platform',
+            title="Daily Order Volume by Platform",
+            color_discrete_map=PLATFORM_COLORS
+        )
+        fig_order_trend.update_layout(hovermode='x unified')
+        st.plotly_chart(fig_order_trend, width='stretch', key='performance_order_trend')
+        
+        # Store performance heatmap
+        st.markdown("### 🏪 Store Performance Heatmap")
+        
+        store_platform_revenue = completed_df.groupby(['Store_Name', 'Platform'])['Revenue'].sum().reset_index()
+        
+        # Only create heatmap if there's data
+        if not store_platform_revenue.empty:
+            heatmap_data = store_platform_revenue.pivot_table(
+                index='Store_Name',
+                columns='Platform',
+                values='Revenue',
+                fill_value=0
+            )
+            
+            if not heatmap_data.empty:
+                fig_heatmap = px.imshow(
+                    heatmap_data.values,
+                    labels=dict(x="Platform", y="Store", color="Revenue"),
+                    x=heatmap_data.columns,
+                    y=heatmap_data.index,
+                    title="Store Revenue Heatmap by Platform",
+                    aspect="auto",
+                    color_continuous_scale='RdYlGn',
+                    text_auto=True
+                )
+                st.plotly_chart(fig_heatmap, width='stretch', key='performance_store_heatmap')
+    
+    # TAB 4: OPERATIONS
+    with tab4:
+        st.markdown("### ⚡ Operational Intelligence")
+        
+        # Peak hours analysis
+        st.markdown("### 🕐 Peak Hours Analysis")
+        
+        if 'Hour' in completed_df.columns:
+            hour_orders = completed_df.groupby(['Hour', 'Platform']).size().reset_index(name='Orders')
+            
+            fig_hourly = px.bar(
+                hour_orders,
+                x='Hour',
+                y='Orders',
+                color='Platform',
+                title="Order Distribution by Hour",
+                color_discrete_map=PLATFORM_COLORS,
+                barmode='stack'
+            )
+            fig_hourly.update_layout(xaxis=dict(tickmode='linear', tick0=0, dtick=1))
+            st.plotly_chart(fig_hourly, width='stretch', key='operations_hourly_distribution')
+            
+            # Day-Hour heatmap
             col1, col2 = st.columns(2)
             
             with col1:
-                fig_dow_orders = px.bar(
-                    dow_orders,
-                    x='DayOfWeek',
-                    y='Orders',
-                    color='Platform',
-                    title='Orders by Day of Week',
-                    color_discrete_map=PLATFORM_COLORS,
-                    barmode='group'
-                )
-                fig_dow_orders.update_layout(**create_enhanced_visualizations())
-                fig_dow_orders.update_layout(xaxis_title="Day of Week", xaxis_tickangle=-45)
-                st.plotly_chart(fig_dow_orders, use_container_width=True, key='operations_dow_orders')
+                if 'DayOfWeek' in completed_df.columns:
+                    hour_day_orders = completed_df.groupby(['Hour', 'DayOfWeek']).size().unstack(fill_value=0)
+                    day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+                    hour_day_orders = hour_day_orders.reindex(columns=[d for d in day_order if d in hour_day_orders.columns], fill_value=0)
+                    
+                    if not hour_day_orders.empty:
+                        fig_hour_heatmap = px.imshow(
+                            hour_day_orders.T.values,
+                            labels=dict(x="Hour of Day", y="Day of Week", color="Orders"),
+                            x=hour_day_orders.index,
+                            y=hour_day_orders.columns,
+                            title="Order Heatmap: Hour vs Day of Week",
+                            aspect="auto",
+                            color_continuous_scale='YlOrRd'
+                        )
+                        st.plotly_chart(fig_hour_heatmap, width='stretch', key='operations_hour_heatmap')
             
             with col2:
-                fig_dow_revenue = px.bar(
-                    dow_orders,
-                    x='DayOfWeek',
+                # Platform-specific peak hours
+                platform_peak_hours = completed_df.groupby(['Platform', 'Hour']).size().reset_index(name='Orders')
+                
+                fig_platform_hours = px.line(
+                    platform_peak_hours,
+                    x='Hour',
+                    y='Orders',
+                    color='Platform',
+                    title="Peak Hours by Platform",
+                    color_discrete_map=PLATFORM_COLORS,
+                    markers=True
+                )
+                st.plotly_chart(fig_platform_hours, width='stretch', key='operations_platform_hours')
+        
+        # Operational efficiency metrics
+        st.markdown("### 📊 Operational Efficiency Metrics")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Calculate average processing metrics
+            if 'Hour' in completed_df.columns:
+                processing_metrics = pd.DataFrame({
+                    'Platform': completed_df['Platform'].unique(),
+                    'Avg Orders/Hour': [
+                        len(completed_df[completed_df['Platform'] == p]) / 
+                        (completed_df[completed_df['Platform'] == p]['Hour'].nunique() or 1)
+                        for p in completed_df['Platform'].unique()
+                    ],
+                    'Peak Hour': [
+                        completed_df[completed_df['Platform'] == p].groupby('Hour').size().idxmax()
+                        if len(completed_df[completed_df['Platform'] == p]) > 0 else 0
+                        for p in completed_df['Platform'].unique()
+                    ]
+                })
+                
+                st.dataframe(processing_metrics, width='stretch', hide_index=True)
+        
+        with col2:
+            # Day of week performance
+            if 'DayOfWeek' in completed_df.columns:
+                dow_performance = completed_df.groupby(['DayOfWeek', 'Platform']).agg({
+                    'Revenue': 'mean',
+                    'Order_ID': 'count'
+                }).round(2)
+                dow_performance.columns = ['Avg Revenue', 'Order Count']
+                dow_performance = dow_performance.reset_index()
+                
+                # Sort by day order
+                day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+                dow_performance['DayOfWeek'] = pd.Categorical(
+                    dow_performance['DayOfWeek'],
+                    categories=day_order,
+                    ordered=True
+                )
+                dow_performance = dow_performance.sort_values(['Platform', 'DayOfWeek'])
+                
+                st.dataframe(dow_performance.head(10), width='stretch', hide_index=True)
+    
+    # TAB 5: GROWTH & TRENDS
+    with tab5:
+        st.markdown("### 📈 Growth Analysis & Forecasting")
+        
+        # Growth metrics
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Month-over-month growth
+            if 'Month' in completed_df.columns:
+                monthly_growth = completed_df.groupby(['Month', 'Platform'])['Revenue'].sum().reset_index()
+                monthly_growth['Month'] = monthly_growth['Month'].astype(str)
+                
+                fig_mom_growth = px.line(
+                    monthly_growth,
+                    x='Month',
                     y='Revenue',
                     color='Platform',
-                    title='Revenue by Day of Week',
+                    title="Month-over-Month Revenue Growth",
                     color_discrete_map=PLATFORM_COLORS,
-                    barmode='group'
+                    markers=True
                 )
-                fig_dow_revenue.update_layout(**create_enhanced_visualizations())
-                fig_dow_revenue.update_layout(xaxis_title="Day of Week", xaxis_tickangle=-45, yaxis_title="Revenue ($)")
-                st.plotly_chart(fig_dow_revenue, use_container_width=True, key='operations_dow_revenue')
-
-    with tab5:
-        st.markdown("### 📈 Growth & Trends Analysis")
+                st.plotly_chart(fig_mom_growth, width='stretch', key='growth_mom_revenue')
         
-        # Monthly trends
+        with col2:
+            # Order growth
+            if 'Month' in completed_df.columns:
+                monthly_order_growth = completed_df.groupby(['Month', 'Platform']).size().reset_index(name='Orders')
+                monthly_order_growth['Month'] = monthly_order_growth['Month'].astype(str)
+                
+                fig_order_growth = px.line(
+                    monthly_order_growth,
+                    x='Month',
+                    y='Orders',
+                    color='Platform',
+                    title="Month-over-Month Order Growth",
+                    color_discrete_map=PLATFORM_COLORS,
+                    markers=True
+                )
+                st.plotly_chart(fig_order_growth, width='stretch', key='growth_mom_orders')
+        
+        # Market share trend
+        st.markdown("### 📊 Market Share Evolution")
+        
         if 'Month' in completed_df.columns:
-            monthly_trends = completed_df.groupby(['Month', 'Platform']).agg({
-                'Revenue': 'sum',
-                'Order_ID': 'count'
-            }).reset_index()
-            monthly_trends.columns = ['Month', 'Platform', 'Revenue', 'Orders']
-            monthly_trends['Month_Str'] = monthly_trends['Month'].astype(str)
+            market_share = completed_df.groupby(['Month', 'Platform'])['Revenue'].sum().reset_index()
+            market_share['Total'] = market_share.groupby('Month')['Revenue'].transform('sum')
+            market_share['Market_Share'] = (market_share['Revenue'] / market_share['Total'] * 100).round(2)
+            market_share['Month'] = market_share['Month'].astype(str)
             
-            # Revenue growth trend
-            fig_monthly_revenue = px.line(
-                monthly_trends,
-                x='Month_Str',
-                y='Revenue',
+            fig_market_share = px.area(
+                market_share,
+                x='Month',
+                y='Market_Share',
                 color='Platform',
-                title='Monthly Revenue Growth by Platform',
-                color_discrete_map=PLATFORM_COLORS,
-                markers=True
+                title="Platform Market Share Over Time (%)",
+                color_discrete_map=PLATFORM_COLORS
             )
-            fig_monthly_revenue.update_layout(**create_enhanced_visualizations())
-            fig_monthly_revenue.update_layout(xaxis_title="Month", yaxis_title="Monthly Revenue ($)")
-            st.plotly_chart(fig_monthly_revenue, use_container_width=True, key='trends_monthly_revenue')
-            
-            # Orders growth trend
-            fig_monthly_orders = px.line(
-                monthly_trends,
-                x='Month_Str',
-                y='Orders',
-                color='Platform',
-                title='Monthly Orders Growth by Platform',
-                color_discrete_map=PLATFORM_COLORS,
-                markers=True
-            )
-            fig_monthly_orders.update_layout(**create_enhanced_visualizations())
-            fig_monthly_orders.update_layout(xaxis_title="Month", yaxis_title="Monthly Orders")
-            st.plotly_chart(fig_monthly_orders, use_container_width=True, key='trends_monthly_orders')
-
-    with tab6:
-        st.markdown("### 👥 Customer Attribution Analysis")
+            st.plotly_chart(fig_market_share, width='stretch', key='growth_market_share')
         
-        # Customer segments based on order frequency and revenue
-        if 'Order_ID' in completed_df.columns:
-            customer_analysis = completed_df.groupby('Order_ID').agg({
-                'Revenue': ['sum', 'count'],
-                'Date': ['min', 'max']
-            }).round(2)
+        # Trend analysis
+        st.markdown("### 📊 Trend Analysis")
+        
+        # Calculate moving averages
+        ma_window = 7  # 7-day moving average
+        daily_revenue_ma = daily_revenue.copy()
+        
+        for platform in daily_revenue_ma['Platform'].unique():
+            mask = daily_revenue_ma['Platform'] == platform
+            daily_revenue_ma.loc[mask, 'MA7'] = daily_revenue_ma.loc[mask, 'Revenue'].rolling(window=ma_window, min_periods=1).mean()
+        
+        fig_trend = go.Figure()
+        
+        for platform in daily_revenue_ma['Platform'].unique():
+            platform_data = daily_revenue_ma[daily_revenue_ma['Platform'] == platform]
             
-            customer_analysis.columns = ['Total_Revenue', 'Order_Frequency', 'First_Order', 'Last_Order']
-            customer_analysis['Days_Active'] = (customer_analysis['Last_Order'] - customer_analysis['First_Order']).dt.days + 1
+            # Add actual revenue
+            fig_trend.add_trace(go.Scatter(
+                x=platform_data['Date'],
+                y=platform_data['Revenue'],
+                mode='lines',
+                name=f'{platform} (Actual)',
+                line=dict(color=PLATFORM_COLORS.get(platform, '#000000'), width=1, dash='dot'),
+                opacity=0.5
+            ))
             
-            # Create customer segments
-            revenue_quartiles = customer_analysis['Total_Revenue'].quantile([0.25, 0.5, 0.75])
-            frequency_quartiles = customer_analysis['Order_Frequency'].quantile([0.25, 0.5, 0.75])
+            # Add moving average
+            fig_trend.add_trace(go.Scatter(
+                x=platform_data['Date'],
+                y=platform_data['MA7'],
+                mode='lines',
+                name=f'{platform} (7-Day MA)',
+                line=dict(color=PLATFORM_COLORS.get(platform, '#000000'), width=2)
+            ))
+        
+        fig_trend.update_layout(
+            title="Revenue Trend with 7-Day Moving Average",
+            xaxis_title="Date",
+            yaxis_title="Revenue ($)",
+            hovermode='x unified'
+        )
+        
+        st.plotly_chart(fig_trend, width='stretch', key='growth_trend_analysis')
+    
+    # TAB 6: CUSTOMER ATTRIBUTION
+    with tab6:
+        st.markdown("### 🎯 Customer Attribution & Segmentation")
+        
+        # RFM Analysis
+        st.markdown("### 💎 RFM Analysis")
+        
+        rfm_data = calculate_rfm_scores(completed_df)
+        
+        if not rfm_data.empty and 'Segment' in rfm_data.columns:
+            # RFM segment distribution
+            segment_counts = rfm_data['Segment'].value_counts()
             
-            def classify_customer(row):
-                if row['Total_Revenue'] >= revenue_quartiles[0.75] and row['Order_Frequency'] >= frequency_quartiles[0.75]:
-                    return 'VIP'
-                elif row['Total_Revenue'] >= revenue_quartiles[0.5] and row['Order_Frequency'] >= frequency_quartiles[0.5]:
-                    return 'Loyal'
-                elif row['Total_Revenue'] >= revenue_quartiles[0.25]:
-                    return 'Regular'
-                else:
-                    return 'Casual'
-            
-            customer_analysis['Segment'] = customer_analysis.apply(classify_customer, axis=1)
-            
-            # Customer segments distribution
-            segment_summary = customer_analysis.groupby('Segment').agg({
-                'Total_Revenue': ['count', 'sum', 'mean'],
-                'Order_Frequency': 'mean'
-            }).round(2)
-            
-            segment_summary.columns = ['Customer_Count', 'Total_Revenue', 'Avg_Revenue', 'Avg_Frequency']
-            segment_summary = segment_summary.reset_index()
-            
-            # Visualize customer segments
-            fig_segments = px.bar(
-                segment_summary,
-                x='Segment',
-                y='Customer_Count',
-                color='Segment',
-                title='Customer Distribution by Segment',
-                color_discrete_sequence=['#8B4513', '#D2691E', '#CD853F', '#F4A460']
+            fig_segments = px.pie(
+                values=segment_counts.values,
+                names=segment_counts.index,
+                title="Customer Segmentation Distribution",
+                color_discrete_sequence=px.colors.qualitative.Set3
             )
-            fig_segments.update_layout(**create_enhanced_visualizations())
-            fig_segments.update_layout(showlegend=False, yaxis_title="Number of Customers")
-            st.plotly_chart(fig_segments, use_container_width=True, key='attribution_segments')
+            st.plotly_chart(fig_segments, width='stretch', key='attribution_rfm_segments')
             
-            # Segment analysis table
-            st.markdown("### 📊 Customer Segment Analysis")
-            display_segments = segment_summary.copy()
-            display_segments['Total_Revenue'] = display_segments['Total_Revenue'].apply(lambda x: f"${x:,.2f}")
-            display_segments['Avg_Revenue'] = display_segments['Avg_Revenue'].apply(lambda x: f"${x:.2f}")
-            st.dataframe(display_segments, use_container_width=True, hide_index=True)
-
+            # RFM metrics by segment
+            if rfm_data['Segment'].nunique() > 1:
+                segment_metrics = rfm_data.groupby('Segment').agg({
+                    'Recency': 'mean',
+                    'Frequency': 'mean',
+                    'Monetary': 'mean'
+                }).round(2)
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    fig_rfm_scatter = px.scatter(
+                        rfm_data,
+                        x='Frequency',
+                        y='Monetary',
+                        color='Segment',
+                        size='Recency',
+                        title="RFM Customer Segmentation",
+                        labels={
+                            'Frequency': 'Purchase Frequency',
+                            'Monetary': 'Total Spend ($)'
+                        },
+                        color_discrete_sequence=px.colors.qualitative.Set3
+                    )
+                    st.plotly_chart(fig_rfm_scatter, width='stretch', key='attribution_rfm_scatter')
+                
+                with col2:
+                    st.markdown("#### Segment Metrics")
+                    st.dataframe(segment_metrics, width='stretch')
+        
+        # Customer Lifetime Value Analysis
+        st.markdown("### 💰 Customer Lifetime Value Analysis")
+        
+        # Simulate CLV calculation
+        clv_data = completed_df.groupby('Order_ID').agg({
+            'Revenue': 'sum',
+            'Date': 'first',
+            'Platform': 'first'
+        }).reset_index()
+        
+        clv_data['Days_Since_First'] = (completed_df['Date'].max() - clv_data['Date']).dt.days
+        clv_data['Estimated_CLV'] = clv_data['Revenue'] * (365 / (clv_data['Days_Since_First'] + 1))
+        
+        # CLV by platform
+        clv_by_platform = clv_data.groupby('Platform')['Estimated_CLV'].mean()
+        
+        fig_clv = px.bar(
+            x=clv_by_platform.index,
+            y=clv_by_platform.values,
+            color=clv_by_platform.index,
+            title="Average Customer Lifetime Value by Platform",
+            color_discrete_map=PLATFORM_COLORS,
+            text=clv_by_platform.values
+        )
+        fig_clv.update_traces(texttemplate='$%{text:.2f}', textposition='outside')
+        fig_clv.update_layout(showlegend=False, yaxis_title="CLV ($)")
+        st.plotly_chart(fig_clv, width='stretch', key='attribution_clv_platform')
+    
+    # TAB 7: RETENTION & CHURN
     with tab7:
         st.markdown("### 🔄 Retention & Churn Analysis")
         
         # Calculate retention metrics
-        if 'Order_ID' in completed_df.columns and 'Date' in completed_df.columns:
-            # Customer ordering pattern
-            customer_orders = completed_df.groupby('Order_ID')['Date'].agg(['min', 'max', 'count']).reset_index()
-            customer_orders.columns = ['Order_ID', 'First_Order', 'Last_Order', 'Total_Orders']
-            customer_orders['Days_Since_First'] = (customer_orders['Last_Order'] - customer_orders['First_Order']).dt.days
-            customer_orders['Days_Since_Last'] = (datetime.now().date() - customer_orders['Last_Order'].dt.date).dt.days
-            
-            # Define churn threshold
-            churn_threshold = st.selectbox("Churn Threshold (days since last order)", [30, 60, 90], index=1)
-            customer_orders['Is_Churned'] = customer_orders['Days_Since_Last'] > churn_threshold
-            
-            # Retention rate
-            total_customers = len(customer_orders)
-            active_customers = len(customer_orders[~customer_orders['Is_Churned']])
-            retention_rate = (active_customers / total_customers * 100) if total_customers > 0 else 0
-            
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                st.markdown(f"""
-                    <div class="metric-card">
-                        <h3 style="color: #8B4513; margin: 0;">Total Customers</h3>
-                        <h2 style="color: #D2691E; margin: 0.5rem 0;">{total_customers:,}</h2>
-                    </div>
-                """, unsafe_allow_html=True)
-            
-            with col2:
-                st.markdown(f"""
-                    <div class="metric-card">
-                        <h3 style="color: #8B4513; margin: 0;">Active Customers</h3>
-                        <h2 style="color: #D2691E; margin: 0.5rem 0;">{active_customers:,}</h2>
-                    </div>
-                """, unsafe_allow_html=True)
-            
-            with col3:
-                st.markdown(f"""
-                    <div class="metric-card">
-                        <h3 style="color: #8B4513; margin: 0;">Retention Rate</h3>
-                        <h2 style="color: #D2691E; margin: 0.5rem 0;">{retention_rate:.1f}%</h2>
-                    </div>
-                """, unsafe_allow_html=True)
-            
-            # Order frequency analysis
-            frequency_dist = customer_orders['Total_Orders'].value_counts().sort_index()
-            
-            fig_frequency = px.bar(
-                x=frequency_dist.index,
-                y=frequency_dist.values,
-                title='Customer Order Frequency Distribution',
-                color=frequency_dist.values,
-                color_continuous_scale='Oranges'
+        cohort_data, monthly_active = calculate_retention_metrics(completed_df)
+        
+        # Monthly active customers
+        if not monthly_active.empty:
+            monthly_active['Month'] = monthly_active['Month'].astype(str)
+            fig_active = px.line(
+                monthly_active,
+                x='Month',
+                y='Active_Customers',
+                color='Platform',
+                title="Monthly Active Customers by Platform",
+                color_discrete_map=PLATFORM_COLORS,
+                markers=True
             )
-            fig_frequency.update_layout(**create_enhanced_visualizations())
-            fig_frequency.update_layout(xaxis_title="Number of Orders", yaxis_title="Number of Customers")
-            st.plotly_chart(fig_frequency, use_container_width=True, key='retention_frequency')
-
+            st.plotly_chart(fig_active, width='stretch', key='retention_monthly_active')
+        
+        # Cohort analysis
+        st.markdown("### 📊 Cohort Analysis")
+        
+        if not cohort_data.empty:
+            # Create cohort retention table
+            cohort_data['Cohort'] = cohort_data['Cohort'].astype(str)
+            cohort_pivot = cohort_data.pivot_table(
+                index='Cohort',
+                columns='Platform',
+                values='Customers',
+                fill_value=0
+            )
+            
+            if not cohort_pivot.empty:
+                fig_cohort = px.imshow(
+                    cohort_pivot.values,
+                    labels=dict(x="Platform", y="Cohort", color="Customers"),
+                    x=cohort_pivot.columns,
+                    y=cohort_pivot.index,
+                    title="Customer Cohorts by Platform",
+                    aspect="auto",
+                    color_continuous_scale='Blues',
+                    text_auto=True
+                )
+                st.plotly_chart(fig_cohort, width='stretch', key='retention_cohort_heatmap')
+        
+        # Churn analysis
+        st.markdown("### 📉 Churn Analysis")
+        
+        # Calculate churn rate (simplified - based on order frequency)
+        order_frequency = completed_df.groupby(['Order_ID', 'Platform']).agg({
+            'Date': ['min', 'max', 'count']
+        }).reset_index()
+        order_frequency.columns = ['Customer_ID', 'Platform', 'First_Order', 'Last_Order', 'Order_Count']
+        
+        # Calculate days since last order
+        order_frequency['Days_Since_Last'] = (completed_df['Date'].max() - order_frequency['Last_Order']).dt.days
+        
+        # Define churned customers (no order in last 30 days)
+        churn_threshold = 30
+        order_frequency['Is_Churned'] = order_frequency['Days_Since_Last'] > churn_threshold
+        
+        # Churn rate by platform
+        churn_by_platform = order_frequency.groupby('Platform')['Is_Churned'].mean() * 100
+        
+        fig_churn = px.bar(
+            x=churn_by_platform.index,
+            y=churn_by_platform.values,
+            color=churn_by_platform.index,
+            title=f"Churn Rate by Platform (>{churn_threshold} days inactive)",
+            color_discrete_map=PLATFORM_COLORS,
+            text=churn_by_platform.values
+        )
+        fig_churn.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
+        fig_churn.update_layout(showlegend=False, yaxis_title="Churn Rate (%)")
+        st.plotly_chart(fig_churn, width='stretch', key='retention_churn_rate')
+    
+    # TAB 8: PLATFORM COMPARISON
     with tab8:
         st.markdown("### 📱 Comprehensive Platform Comparison")
         
@@ -1278,11 +1171,11 @@ def main():
             }
             
             # Add peak hour if available
-            if 'Hour' in platform_data.columns and platform_data['Hour'].notna().any():
+            if 'Hour' in platform_data.columns:
                 metrics_dict['Peak Hour'] = platform_data.groupby('Hour').size().idxmax() if len(platform_data) > 0 else 0
             
             # Add top day if available
-            if 'DayOfWeek' in platform_data.columns and platform_data['DayOfWeek'].notna().any():
+            if 'DayOfWeek' in platform_data.columns:
                 metrics_dict['Top Day'] = platform_data.groupby('DayOfWeek').size().idxmax() if len(platform_data) > 0 else 'N/A'
             
             comparison_metrics = pd.concat([comparison_metrics, pd.DataFrame([metrics_dict])], ignore_index=True)
@@ -1291,54 +1184,52 @@ def main():
         st.markdown("### 📊 Key Performance Indicators")
         
         # Format the metrics for display
-        if not comparison_metrics.empty:
-            formatted_metrics = comparison_metrics.copy()
-            formatted_metrics['Total Revenue'] = formatted_metrics['Total Revenue'].apply(lambda x: f"${x:,.2f}")
-            formatted_metrics['Average Order Value'] = formatted_metrics['Average Order Value'].apply(lambda x: f"${x:.2f}")
-            formatted_metrics['Median Order Value'] = formatted_metrics['Median Order Value'].apply(lambda x: f"${x:.2f}")
-            formatted_metrics['Revenue Std Dev'] = formatted_metrics['Revenue Std Dev'].apply(lambda x: f"${x:.2f}")
-            formatted_metrics['Min Order'] = formatted_metrics['Min Order'].apply(lambda x: f"${x:.2f}")
-            formatted_metrics['Max Order'] = formatted_metrics['Max Order'].apply(lambda x: f"${x:.2f}")
-            formatted_metrics['Daily Avg Revenue'] = formatted_metrics['Daily Avg Revenue'].apply(lambda x: f"${x:,.2f}")
-            
-            st.dataframe(formatted_metrics, use_container_width=True, hide_index=True)
-            
-            # Radar chart comparison
-            st.markdown("### 🎯 Multi-Dimensional Platform Analysis")
-            
-            # Normalize metrics for radar chart
-            radar_metrics = comparison_metrics[['Platform', 'Total Orders', 'Total Revenue', 
-                                               'Average Order Value', 'Active Days', 'Unique Stores']].copy()
-            
-            # Normalize each metric to 0-100 scale
-            for col in radar_metrics.columns[1:]:
-                max_val = radar_metrics[col].max()
-                if max_val > 0:
-                    radar_metrics[col] = (radar_metrics[col] / max_val * 100).round(2)
-            
-            fig_radar = go.Figure()
-            
-            for _, row in radar_metrics.iterrows():
-                fig_radar.add_trace(go.Scatterpolar(
-                    r=[row['Total Orders'], row['Total Revenue'], row['Average Order Value'],
-                       row['Active Days'], row['Unique Stores']],
-                    theta=['Total Orders', 'Total Revenue', 'AOV', 'Active Days', 'Unique Stores'],
-                    fill='toself',
-                    name=row['Platform'],
-                    line_color=PLATFORM_COLORS.get(row['Platform'], '#8B4513')
-                ))
-            
-            fig_radar.update_layout(
-                polar=dict(
-                    radialaxis=dict(visible=True, range=[0, 100])
-                ),
-                showlegend=True,
-                title="Platform Performance Radar Chart (Normalized)",
-                **create_enhanced_visualizations()
-            )
-            
-            st.plotly_chart(fig_radar, use_container_width=True, key='comparison_radar_chart')
-
+        formatted_metrics = comparison_metrics.copy()
+        formatted_metrics['Total Revenue'] = formatted_metrics['Total Revenue'].apply(lambda x: f"${x:,.2f}")
+        formatted_metrics['Average Order Value'] = formatted_metrics['Average Order Value'].apply(lambda x: f"${x:.2f}")
+        formatted_metrics['Median Order Value'] = formatted_metrics['Median Order Value'].apply(lambda x: f"${x:.2f}")
+        formatted_metrics['Revenue Std Dev'] = formatted_metrics['Revenue Std Dev'].apply(lambda x: f"${x:.2f}")
+        formatted_metrics['Min Order'] = formatted_metrics['Min Order'].apply(lambda x: f"${x:.2f}")
+        formatted_metrics['Max Order'] = formatted_metrics['Max Order'].apply(lambda x: f"${x:.2f}")
+        formatted_metrics['Daily Avg Revenue'] = formatted_metrics['Daily Avg Revenue'].apply(lambda x: f"${x:,.2f}")
+        
+        st.dataframe(formatted_metrics, width='stretch', hide_index=True)
+        
+        # Radar chart comparison
+        st.markdown("### 🎯 Multi-Dimensional Platform Analysis")
+        
+        # Normalize metrics for radar chart
+        radar_metrics = comparison_metrics[['Platform', 'Total Orders', 'Total Revenue', 
+                                           'Average Order Value', 'Active Days', 'Unique Stores']].copy()
+        
+        # Normalize each metric to 0-100 scale
+        for col in radar_metrics.columns[1:]:
+            max_val = radar_metrics[col].max()
+            if max_val > 0:
+                radar_metrics[col] = (radar_metrics[col] / max_val * 100).round(2)
+        
+        fig_radar = go.Figure()
+        
+        for _, row in radar_metrics.iterrows():
+            fig_radar.add_trace(go.Scatterpolar(
+                r=[row['Total Orders'], row['Total Revenue'], row['Average Order Value'],
+                   row['Active Days'], row['Unique Stores']],
+                theta=['Total Orders', 'Total Revenue', 'AOV', 'Active Days', 'Unique Stores'],
+                fill='toself',
+                name=row['Platform'],
+                line_color=PLATFORM_COLORS.get(row['Platform'], '#000000')
+            ))
+        
+        fig_radar.update_layout(
+            polar=dict(
+                radialaxis=dict(visible=True, range=[0, 100])
+            ),
+            showlegend=True,
+            title="Platform Performance Radar Chart (Normalized)"
+        )
+        
+        st.plotly_chart(fig_radar, width='stretch', key='comparison_radar_chart')
+    
     # Export functionality
     st.markdown("---")
     st.markdown("### 📤 Export Analytics Report")
@@ -1350,17 +1241,17 @@ def main():
             output = io.BytesIO()
             with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                 # Summary sheet
-                platform_summary.to_excel(writer, sheet_name='Platform_Summary', index=False)
+                summary_df.to_excel(writer, sheet_name='Platform_Summary', index=False)
                 
                 # Revenue analysis
                 daily_revenue.to_excel(writer, sheet_name='Daily_Revenue', index=False)
                 
-                # Processed data
-                completed_df.to_excel(writer, sheet_name='All_Data', index=False)
+                # RFM analysis
+                if not rfm_data.empty:
+                    rfm_data.to_excel(writer, sheet_name='RFM_Analysis', index=False)
                 
                 # Platform comparison
-                if not comparison_metrics.empty:
-                    comparison_metrics.to_excel(writer, sheet_name='Platform_Comparison', index=False)
+                comparison_metrics.to_excel(writer, sheet_name='Platform_Comparison', index=False)
             
             st.download_button(
                 label="📥 Download Excel Report",
@@ -1383,9 +1274,6 @@ def main():
     
     with col3:
         if st.button("📄 Generate Summary Report", key="export_summary_button"):
-            platform_revenue = completed_df.groupby('Platform')['Revenue'].sum()
-            platform_orders = completed_df.groupby('Platform').size()
-            
             report = f"""
 LUCKIN COFFEE MARKETING ANALYTICS REPORT
 Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
@@ -1401,15 +1289,15 @@ Order Growth (MoM): {order_growth:.1f}%
 
 PLATFORM BREAKDOWN
 ==================
-{platform_summary.to_string()}
+{summary_df.to_string()}
 
 TOP INSIGHTS
 ============
 1. Highest revenue platform: {platform_revenue.idxmax() if not platform_revenue.empty else 'N/A'}
 2. Most orders platform: {platform_orders.idxmax() if not platform_orders.empty else 'N/A'}
-3. Data quality: Successfully processed {len(completed_df)} valid orders
+3. Top performing store: {store_performance.index[0] if len(store_performance) > 0 else 'N/A'}
 
-Date Range: {completed_df['Date'].min().strftime('%Y-%m-%d')} to {completed_df['Date'].max().strftime('%Y-%m-%d')}
+Date Range: {df['Date'].min().strftime('%Y-%m-%d')} to {df['Date'].max().strftime('%Y-%m-%d')}
 """
             st.download_button(
                 label="📥 Download Summary Report",
@@ -1422,9 +1310,9 @@ Date Range: {completed_df['Date'].min().strftime('%Y-%m-%d')} to {completed_df['
     # Footer
     st.markdown("---")
     st.markdown("""
-        <div style='text-align: center; color: #6c757d; padding: 2rem; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 15px; margin-top: 2rem;'>
-            <p style="font-size: 1.2rem; margin-bottom: 0.5rem; font-family: 'Crimson Pro', serif; color: #8B4513;">☕ Luckin Coffee Marketing Analytics Dashboard v4.0</p>
-            <p style='font-size: 0.9rem; margin: 0; color: #6c757d;'>Enhanced Error Handling | Multi-Platform Data Processing | Coffee-Themed Design</p>
+        <div style='text-align: center; color: #666; padding: 1rem;'>
+            <p>Luckin Coffee Marketing Analytics Dashboard v3.0</p>
+            <p style='font-size: 0.9rem;'>Fixed all errors | Powered by Streamlit & Plotly</p>
         </div>
     """, unsafe_allow_html=True)
 
