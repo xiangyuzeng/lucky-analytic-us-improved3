@@ -313,18 +313,28 @@ def process_grubhub_data(df):
     """Process Grubhub data with fixed date handling"""
     try:
         processed = pd.DataFrame()
-        
+
+        # Debug: Show column names
+        st.info(f"Grubhub columns found: {', '.join(df.columns.tolist()[:10])}...")
+
         # Handle transaction_date - it might be corrupted (showing as #######)
         if 'transaction_date' in df.columns:
             date_str = df['transaction_date'].astype(str)
-            
+
+            # Debug: Show sample dates
+            st.info(f"Sample dates: {date_str.head(3).tolist()}")
+
             # Try to parse normal dates first
             processed['Date'] = pd.to_datetime(date_str, format='%m/%d/%Y', errors='coerce')
-            
+
             # If all dates failed, try other formats
             if processed['Date'].isna().all():
                 processed['Date'] = pd.to_datetime(date_str, format='%Y-%m-%d', errors='coerce')
-            
+
+            # Try default pandas parsing if still failing
+            if processed['Date'].isna().all():
+                processed['Date'] = pd.to_datetime(date_str, errors='coerce')
+
             # If still failing, check for Excel serial dates or corrupted values
             if processed['Date'].isna().sum() > len(df) * 0.5:  # More than 50% failed
                 # Try to convert from Excel serial date
@@ -344,18 +354,28 @@ def process_grubhub_data(df):
                     processed['Date'] = date_range[:len(df)]
         else:
             # No date column - use current date
+            st.warning("No 'transaction_date' column found in Grubhub data")
             processed['Date'] = pd.to_datetime('today').normalize()
-        
+
         processed['Platform'] = 'Grubhub'
-        
-        # Revenue - try multiple possible columns
+
+        # Revenue - try multiple possible columns with better handling
+        revenue_found = False
         if 'merchant_net_total' in df.columns:
-            processed['Revenue'] = pd.to_numeric(df['merchant_net_total'], errors='coerce')
+            # Clean revenue data - remove $ and commas
+            revenue_str = df['merchant_net_total'].astype(str).str.replace('$', '', regex=False).str.replace(',', '', regex=False)
+            processed['Revenue'] = pd.to_numeric(revenue_str, errors='coerce').fillna(0)
+            revenue_found = True
+            st.info(f"Sample revenues (merchant_net_total): {processed['Revenue'].head(3).tolist()}")
         elif 'merchant_total' in df.columns:
-            processed['Revenue'] = pd.to_numeric(df['merchant_total'], errors='coerce')
+            revenue_str = df['merchant_total'].astype(str).str.replace('$', '', regex=False).str.replace(',', '', regex=False)
+            processed['Revenue'] = pd.to_numeric(revenue_str, errors='coerce').fillna(0)
+            revenue_found = True
+            st.info(f"Sample revenues (merchant_total): {processed['Revenue'].head(3).tolist()}")
         else:
+            st.warning("No revenue column found in Grubhub data")
             processed['Revenue'] = 0
-        
+
         # Optional fields
         field_mappings = {
             'subtotal': 'Subtotal',
@@ -364,16 +384,19 @@ def process_grubhub_data(df):
             'commission': 'Commission',
             'merchant_funded_promotion': 'Marketing_Fee'
         }
-        
+
         for col, new_col in field_mappings.items():
             if col in df.columns:
-                processed[new_col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+                # Clean currency values
+                val_str = df[col].astype(str).str.replace('$', '', regex=False).str.replace(',', '', regex=False)
+                processed[new_col] = pd.to_numeric(val_str, errors='coerce').fillna(0)
             else:
                 processed[new_col] = 0
-        
+
         # Order status - be more lenient with Grubhub data
         if 'transaction_type' in df.columns:
             trans_type = df['transaction_type'].astype(str)
+            st.info(f"Sample transaction types: {trans_type.unique()[:5].tolist()}")
             # Mark as cancelled only if explicitly cancelled or refund
             processed['Is_Cancelled'] = trans_type.str.contains('Cancel|cancel|Refund|refund', case=False, na=False, regex=True)
             # Mark as completed unless it's cancelled
@@ -381,17 +404,17 @@ def process_grubhub_data(df):
         else:
             processed['Is_Completed'] = True
             processed['Is_Cancelled'] = False
-        
+
         # Store information
         processed['Store_Name'] = df.get('store_name', 'Unknown').fillna('Unknown')
         processed['Store_ID'] = df.get('store_number', 'Unknown').fillna('Unknown').astype(str)
-        
+
         # Order ID
         if 'order_number' in df.columns:
             processed['Order_ID'] = df['order_number'].astype(str)
         else:
             processed['Order_ID'] = pd.Series(range(len(df))).astype(str) + '_gh'
-        
+
         # Time processing
         if 'transaction_time_local' in df.columns:
             try:
@@ -405,18 +428,28 @@ def process_grubhub_data(df):
                 processed['Hour'] = 12
         else:
             processed['Hour'] = 12
-        
+
         # Add day and month info
         processed['DayOfWeek'] = processed['Date'].dt.day_name()
         processed['Month'] = processed['Date'].dt.to_period('M')
-        
+
+        # Debug: Show counts before cleaning
+        st.info(f"Before cleaning - Total: {len(processed)}, Valid dates: {processed['Date'].notna().sum()}, Non-zero revenue: {(processed['Revenue'] != 0).sum()}")
+
         # Clean data - remove invalid entries
+        # Be more lenient - allow zero revenue for some transaction types
         processed = processed[processed['Date'].notna()]
+
+        # For revenue, only filter out NaN, but allow zero values (might be adjustments)
+        initial_count = len(processed)
         processed = processed[processed['Revenue'].notna()]
-        processed = processed[processed['Revenue'] != 0]
-        
+        st.info(f"After removing NaN revenue: {len(processed)} rows (removed {initial_count - len(processed)})")
+
+        # Don't filter out zero revenue - Grubhub might have adjustment transactions
+        # processed = processed[processed['Revenue'] != 0]
+
         return processed
-        
+
     except Exception as e:
         st.error(f"Grubhub processing error: {e}")
         import traceback
